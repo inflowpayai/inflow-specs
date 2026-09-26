@@ -264,3 +264,86 @@ test("shutdown closes active sockets and cancels delayed responses", async () =>
   await platform.close();
   await pending;
 });
+
+test("captures generated idempotency keys and compares retries without exposing values", async () => {
+  for (const second of ["synthetic-random-key", "different-key", ""]) {
+    const platform = await startPlatform(
+      script(
+        exchange({ headers: { "idempotency-key": { capture: "payment" } } }),
+        exchange({ headers: { "idempotency-key": { same: "payment" } } }),
+      ),
+    );
+    try {
+      for (const key of ["synthetic-random-key", second])
+        await (
+          await fetch(platform.baseUrl + "/test", { headers: { "idempotency-key": key } })
+        ).text();
+      if (second === "synthetic-random-key") await platform.waitComplete(100);
+      else await assert.rejects(platform.waitComplete(100), /Unexpected/);
+      assert.doesNotMatch(
+        JSON.stringify(platform.requests()),
+        /synthetic-random-key|different-key/,
+      );
+    } finally {
+      await platform.close();
+    }
+  }
+});
+
+test("capture declarations reject credentials, forward references and duplicates", async () => {
+  for (const entries of [
+    [exchange({ headers: { authorization: { capture: "secret" } } })],
+    [exchange({ headers: { "idempotency-key": { same: "unknown" } } })],
+    [
+      exchange({ headers: { "idempotency-key": { capture: "duplicate" } } }),
+      exchange({ headers: { "idempotency-key": { capture: "duplicate" } } }),
+    ],
+  ])
+    await assert.rejects(startPlatform(script(...entries)));
+  for (const headers of [{}, { "idempotency-key": " " }, { "idempotency-key": "x".repeat(4097) }]) {
+    const platform = await startPlatform(
+      script(exchange({ headers: { "idempotency-key": { capture: "key" } } })),
+    );
+    try {
+      await (await fetch(platform.baseUrl + "/test", { headers })).text();
+      await assert.rejects(platform.waitComplete(100), /Unexpected/);
+    } finally {
+      await platform.close();
+    }
+  }
+});
+
+test("completion waits for late cleanup and response completion without a fixed sleep", async () => {
+  const platform = await startPlatform(script(exchange({}, { delay_ms: 20 })));
+  try {
+    const completed = platform.waitComplete(1000);
+    const response = await fetch(platform.baseUrl + "/test");
+    await response.text();
+    await completed;
+    await platform.waitComplete(100);
+    platform.assertComplete();
+  } finally {
+    await platform.close();
+  }
+});
+
+test("completion is bounded, abortable and rejects shutdown", async () => {
+  for (const mode of ["timeout", "abort", "already-aborted", "close"]) {
+    const platform = await startPlatform(script(exchange()));
+    const controller = new AbortController();
+    try {
+      if (mode === "already-aborted") controller.abort();
+      const pending = assert.rejects(
+        platform.waitComplete(mode === "timeout" ? 10 : 1000, controller.signal),
+        /incomplete|aborted|closed/,
+      );
+      if (mode === "abort") controller.abort();
+      if (mode === "close") await platform.close();
+      await pending;
+      for (const timeout of [0, -1, 1.5, 300001])
+        await assert.rejects(platform.waitComplete(timeout), /Invalid/);
+    } finally {
+      await platform.close();
+    }
+  }
+});

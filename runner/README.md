@@ -12,10 +12,11 @@ observation format. It must not implement payment selection, signing, polling, c
 settlement on behalf of the SDK. Review the adapter's calls as well as its test results: a passing
 report cannot prove that an adapter actually used the SDK.
 
-Payment cases and SDK adapters are not implemented in this repository yet. The local HTTP platform
-supports scripted exchanges, including shared runtime fixtures. Use only synthetic credentials and
-local services. The runner is not a network sandbox: it executes the supplied program with the
-caller's environment and working directory. Run trusted adapters without production credentials.
+The [MPP corpus](../contracts/mpp.md) supplies payment cases; SDK adapters are not implemented in
+this repository. The local HTTP platform supports scripted exchanges, including shared runtime
+fixtures. Use only synthetic credentials and local services. The runner is not a network sandbox: it
+executes the supplied program with the caller's environment and working directory. Run trusted
+adapters without production credentials.
 
 ## Run
 
@@ -135,10 +136,12 @@ A case can include `platform`, following the [platform schema](../schemas/platfo
 For each such case, the runner starts an isolated loopback server and injects its address as
 `input.base_url`. The case must not supply its own `base_url`. The adapter receives neither the
 response script nor expected results. It uses the injected address through the SDK's public API
-configuration and returns only after its requests and cleanup work have finished. The runner checks
-both the adapter observation and completion of all required exchanges, then closes the server. It
-also closes the server when an adapter fails or times out. Background requests after the adapter
-returns its observation are not supported; adapters must await the work they are reporting.
+configuration. Adapters must await work exposed by the SDK's public API. If the SDK initiates
+background cleanup before returning, the runner allows a separate completion deadline for the
+scripted exchanges, using the same configured timeout. It does not sleep for a fixed grace period.
+Missing, incorrect, extra, or stalled requests fail the case. Then it closes the server, including
+when an adapter fails or times out. Arbitrary future background activity is not supported or proven
+absent by this bounded check.
 
 Each incoming request reserves the next exchange in arrival order. Matching checks the exact method
 and path, including the query string. Expected header names are lowercase; values match exactly and
@@ -146,6 +149,12 @@ must appear once. A `null` value requires absence. Authorization and API-key hea
 unless the exchange explicitly expects them. Other unspecified headers, such as User-Agent and
 Accept-Encoding, are allowed. `request.json` requires a structurally matching JSON body; omitting it
 requires an empty body. Explicit JSON `null` differs from no body.
+
+For `idempotency-key` only, `{ "capture": "payment" }` accepts and remembers one nonempty header
+value of at most 4096 characters; `{ "same": "payment" }` requires that value on a later exchange.
+Capture names are unique within a case and references must follow their capture. Values are not
+included in request traces or reports. This tests SDK-generated keys and retry stability without
+dictating a random key's contents. Credential headers cannot use these matchers.
 
 Responses can contain `json`, raw `text`, or no body, plus status and headers. HTTP 204 and 304
 cannot carry bodies. Framing headers are controlled by the server. Optional `delay_ms` (up to 1
@@ -160,8 +169,10 @@ bodies; use synthetic data in paths too. Teardown clears delayed responses and c
 sockets.
 
 Standalone tooling can import `startPlatform` from `runner/platform.mjs`. It returns `baseUrl`,
-`requests()`, `assertComplete()`, and asynchronous `close()`. Always call `close()` in `finally`.
-The [runtime scenarios](../fixtures/runtime.mjs) supply reusable scripts; see their
+`requests()`, `assertComplete()`, asynchronous `waitComplete(timeoutMs, signal)`, and asynchronous
+`close()`. The completion timeout is an integer from 1 to 300,000 milliseconds; abort and shutdown
+reject a pending wait. Always call `close()` in `finally`. The
+[runtime scenarios](../fixtures/runtime.mjs) supply reusable scripts; see their
 [documented meaning and limits](../contracts/runtime.md). These tests exercise actual local HTTP,
 but the fixture adapter still is not a real SDK adapter.
 
@@ -197,9 +208,11 @@ identifier, with exactly one observation, following the
 ```
 
 For an expected SDK error, return `error` instead of `result`, with required `code` and `message`
-and optional integer `http_status`. A matching error observation passes a negative case. A crash,
-timeout, malformed response, mismatched identifier, duplicate response, or nonzero exit fails the
-run. Adapters cannot return their own pass/fail verdict or runtime skip.
+and optional integer `http_status` and object `details`. Suite contracts define any details and
+test-only error normalization; platform errors preserve their actual code/message/status. A matching
+error observation passes a negative case. A crash, timeout, malformed response, mismatched
+identifier, duplicate response, or nonzero exit fails the run. Adapters cannot return their own
+pass/fail verdict or runtime skip.
 
 `adapter_version: "1"` identifies this message format, not a release version of `inflow-specs`.
 Sequence numbers follow selected case positions and can have gaps where optional cases are skipped.
@@ -215,11 +228,11 @@ Sequence numbers follow selected case positions and can have gaps where optional
 | Adapter standard error        | 64 KiB per run                                                |
 | Response and final exit waits | 10 seconds each by default; configurable from 1 to 300,000 ms |
 
-The timeout applies to each response and to exit after input closes, not to the entire suite.
-Oversized output fails the run. Standard error is bounded and discarded; it is not copied into
-reports. Reports also omit raw input and response bodies. Use synthetic data even for local
-diagnostics, and reproduce a failing case in the SDK's own test tooling when detailed traces are
-needed.
+The timeout applies separately to each response, mock completion, and exit after input closes, not
+to the entire suite. Oversized output fails the run. Standard error is bounded and discarded; it is
+not copied into reports. Reports also omit raw input and response bodies. Use synthetic data even
+for local diagnostics, and reproduce a failing case in the SDK's own test tooling when detailed
+traces are needed.
 
 ## Reports and reproducibility
 

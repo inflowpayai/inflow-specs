@@ -75,6 +75,17 @@ for await (const line of createInterface({ input: process.stdin })) {
   }
   if (mode === "duplicate") process.stdout.write(encoded + "\n");
   if (mode === "delayed-duplicate") setTimeout(() => process.stdout.write(encoded + "\n"), 10);
+  if (mode === "mark-response") await writeFile(process.argv[3], "ready");
+  if (mode === "late-http")
+    setTimeout(
+      () =>
+        fetch(request.input.base_url + "/cleanup")
+          .then((value) => value.text())
+          .catch(() => {
+            process.exitCode = 1;
+          }),
+      20,
+    );
   if (mode === "exit-after-one" && count === 1) process.exit(0);
 }
 if (mode === "linger") setInterval(() => {}, 1000);

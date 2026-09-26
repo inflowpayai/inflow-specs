@@ -70,6 +70,51 @@ test("mismatch is a completed failed run, not a crash or skip", async () => {
   assert.doesNotMatch(JSON.stringify(report), /hello 雪/);
 });
 
+test("runner waits for asynchronous cleanup initiated by the adapter", async () => {
+  const value = {
+    ...item("late-cleanup"),
+    platform: {
+      exchanges: [{ request: { method: "GET", path: "/cleanup" }, response: { status: 204 } }],
+    },
+  };
+  const report = await run(options("late-http", [value]));
+  assert.equal(report.completed, true);
+  assert.equal(report.passed, true);
+});
+
+test("aborting mock completion does not report the unfinished case as passed", async () => {
+  const marker = join(temporary, "mock-completion-ready");
+  const controller = new AbortController();
+  const value = {
+    ...item("waiting-cleanup"),
+    platform: {
+      exchanges: [{ request: { method: "GET", path: "/cleanup" }, response: { status: 204 } }],
+    },
+  };
+  const config = options("mark-response", [value]);
+  config.command.push(marker);
+  const running = run({ ...config, timeoutMs: 5000, signal: controller.signal });
+  try {
+    let ready = false;
+    for (let i = 0; i < 200; i++) {
+      if ((await readFile(marker, "utf8").catch(() => "")) === "ready") {
+        ready = true;
+        break;
+      }
+      await delay(10);
+    }
+    assert.equal(ready, true);
+    await delay(20);
+  } finally {
+    controller.abort();
+  }
+  const report = await running;
+  assert.equal(report.completed, false);
+  assert.equal(report.passed, false);
+  assert.equal(report.results[0].status, "not_run");
+  assert.match(report.runner_error, /Platform completion aborted/);
+});
+
 test("runner checks real HTTP exchanges as well as adapter observations", async () => {
   const platform = runtimeScenarios["approval.cancel"];
   const value = {

@@ -11,6 +11,7 @@ for (const name of [
   "implementation",
   "report",
   "platform",
+  "mpp-case",
 ]) {
   ajv.addSchema(
     JSON.parse(await readFile(new URL(`../schemas/${name}.schema.json`, import.meta.url), "utf8")),
@@ -29,6 +30,7 @@ export function selectCases(index, capabilities) {
   validate("capabilities", capabilities);
   const identifiers = new Set();
   for (const item of index.cases) {
+    if (["mpp-core", "mpp-buyer", "mpp-seller"].includes(item.suite)) validate("mpp-case", item);
     if (identifiers.has(item.id)) throw new Error(`Duplicate case: ${item.id}`);
     identifiers.add(item.id);
   }
