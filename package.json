@@ -7,11 +7,14 @@
     "node": ">=24"
   },
   "scripts": {
+    "conformance": "node runner/cli.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm format:check"
+    "test": "node --test --experimental-test-coverage --test-coverage-include='runner/*.mjs' --test-coverage-lines=90 --test-coverage-functions=90 test/*.test.mjs",
+    "verify": "pnpm format:check && pnpm test"
   },
   "devDependencies": {
+    "ajv": "8.20.0",
     "prettier": "3.9.8"
   }
 }

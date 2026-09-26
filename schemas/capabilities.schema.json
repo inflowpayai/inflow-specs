@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:inflow:conformance:capabilities",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["suites", "supported_features", "unsupported_features"],
+  "properties": {
+    "suites": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" }
+    },
+    "supported_features": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" }
+    },
+    "unsupported_features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason"],
+        "properties": {
+          "id": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      }
+    }
+  }
+}

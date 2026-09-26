@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:inflow:conformance:implementation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "runtime", "packages", "dependencies"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "runtime": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "packages": {
+      "type": "object",
+      "$ref": "urn:inflow:conformance:common#/$defs/versions",
+      "minProperties": 1
+    },
+    "dependencies": { "$ref": "urn:inflow:conformance:common#/$defs/versions" }
+  }
+}

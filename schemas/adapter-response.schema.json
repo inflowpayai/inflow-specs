@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:inflow:conformance:adapter-response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["adapter_version", "sequence", "case_id"],
+  "properties": {
+    "adapter_version": { "const": "1" },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 10000 },
+    "case_id": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" },
+    "result": {},
+    "error": { "$ref": "urn:inflow:conformance:common#/$defs/error" }
+  },
+  "oneOf": [
+    { "properties": { "result": {} }, "required": ["result"] },
+    { "properties": { "error": {} }, "required": ["error"] }
+  ]
+}
