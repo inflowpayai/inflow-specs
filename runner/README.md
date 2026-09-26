@@ -12,10 +12,10 @@ observation format. It must not implement payment selection, signing, polling, c
 settlement on behalf of the SDK. Review the adapter's calls as well as its test results: a passing
 report cannot prove that an adapter actually used the SDK.
 
-Payment cases and local mock services are separate from this runner. There are no payment cases or
-SDK adapters in this repository yet. Use only synthetic credentials and local services. The runner
-is not a network sandbox: it executes the supplied program with the caller's environment and working
-directory. Run trusted adapters without production credentials.
+Payment cases and SDK adapters are not implemented in this repository yet. The local HTTP platform
+supports scripted exchanges, including shared runtime fixtures. Use only synthetic credentials and
+local services. The runner is not a network sandbox: it executes the supplied program with the
+caller's environment and working directory. Run trusted adapters without production credentials.
 
 ## Run
 
@@ -107,6 +107,63 @@ cases are rejected. Feature declarations refer to the selected suites only.
 Suites not selected are outside the report's scope. Selecting one role does not certify other roles;
 the report includes the selection. SDK verification jobs must supply the suites required for the
 packages they claim to implement.
+
+## Local HTTP platform
+
+A case can include `platform`, following the [platform schema](../schemas/platform.schema.json):
+
+```json
+{
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/v1/approvals/11111111-1111-4111-8111-111111111111",
+        "headers": { "x-api-key": "test-only-invalid-key" }
+      },
+      "response": {
+        "status": 401,
+        "headers": {
+          "www-authenticate": "Bearer resource_metadata=\"/.well-known/oauth-protected-resource\""
+        }
+      }
+    }
+  ]
+}
+```
+
+For each such case, the runner starts an isolated loopback server and injects its address as
+`input.base_url`. The case must not supply its own `base_url`. The adapter receives neither the
+response script nor expected results. It uses the injected address through the SDK's public API
+configuration and returns only after its requests and cleanup work have finished. The runner checks
+both the adapter observation and completion of all required exchanges, then closes the server. It
+also closes the server when an adapter fails or times out. Background requests after the adapter
+returns its observation are not supported; adapters must await the work they are reporting.
+
+Each incoming request reserves the next exchange in arrival order. Matching checks the exact method
+and path, including the query string. Expected header names are lowercase; values match exactly and
+must appear once. A `null` value requires absence. Authorization and API-key headers are forbidden
+unless the exchange explicitly expects them. Other unspecified headers, such as User-Agent and
+Accept-Encoding, are allowed. `request.json` requires a structurally matching JSON body; omitting it
+requires an empty body. Explicit JSON `null` differs from no body.
+
+Responses can contain `json`, raw `text`, or no body, plus status and headers. HTTP 204 and 304
+cannot carry bodies. Framing headers are controlled by the server. Optional `delay_ms` (up to 1
+second) and `disconnect` provide fault injection. A mismatched or extra request gets a tooling HTTP
+500 and fails the case; that diagnostic response is not an InFlow API contract. Missing exchanges
+also fail, even if an adapter returns the expected observation.
+
+Scripts contain at most 200 exchanges and 1 MiB of serialized configuration. Request bodies are
+limited to 64 KiB, and stalled sockets have a 2-second inactivity timeout. The runner's response
+deadline still applies. Generated request traces retain only methods and paths, not headers or
+bodies; use synthetic data in paths too. Teardown clears delayed responses and closes active
+sockets.
+
+Standalone tooling can import `startPlatform` from `runner/platform.mjs`. It returns `baseUrl`,
+`requests()`, `assertComplete()`, and asynchronous `close()`. Always call `close()` in `finally`.
+The [runtime scenarios](../fixtures/runtime.mjs) supply reusable scripts; see their
+[documented meaning and limits](../contracts/runtime.md). These tests exercise actual local HTTP,
+but the fixture adapter still is not a real SDK adapter.
 
 ## Adapter messages
 

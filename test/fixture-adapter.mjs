@@ -45,6 +45,17 @@ for await (const line of createInterface({ input: process.stdin })) {
       ? { error: request.input.value }
       : { result: request.input.value }),
   };
+  if (request.operation === "fixture.http") {
+    const observed = [];
+    for (const input of request.input.requests) {
+      const result = await fetch(request.input.base_url + input.path, {
+        method: input.method,
+        headers: input.headers,
+      });
+      observed.push({ status: result.status, text: await result.text() });
+    }
+    response.result = observed;
+  }
   if (mode === "wrong-sequence") response.sequence++;
   if (mode === "wrong-case") response.case_id = "different";
   if (mode === "unknown-field") response.extra = true;

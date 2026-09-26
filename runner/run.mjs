@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { startAdapter } from "./process.mjs";
+import { startPlatform } from "./platform.mjs";
 import { selectCases, validate } from "./validation.mjs";
 
 export function revision(directory) {
@@ -66,20 +67,36 @@ export async function run({
     for (let index = 0; index < cases.length; index++) {
       const { item, omission } = cases[index];
       if (omission !== null) continue;
-      const response = await adapter.exchange({
-        adapter_version: "1",
-        sequence: index + 1,
-        case_id: item.id,
-        operation: item.operation,
-        input: item.input,
-      });
-      const observed = Object.hasOwn(response, "result")
-        ? { result: response.result }
-        : { error: response.error };
-      const matches = isDeepStrictEqual(observed, item.expect);
-      report.results[index].status = matches ? "passed" : "failed";
-      if (!matches)
-        report.results[index].message = "SDK observation did not match the expected outcome";
+      let platform;
+      try {
+        if (item.platform) {
+          if (Object.hasOwn(item.input, "base_url"))
+            throw new Error("Platform cases must not supply their own base_url");
+          platform = await startPlatform(item.platform);
+        }
+        const response = await adapter.exchange({
+          adapter_version: "1",
+          sequence: index + 1,
+          case_id: item.id,
+          operation: item.operation,
+          input: platform ? { ...item.input, base_url: platform.baseUrl } : item.input,
+        });
+        const observed = Object.hasOwn(response, "result")
+          ? { result: response.result }
+          : { error: response.error };
+        const matches = isDeepStrictEqual(observed, item.expect);
+        report.results[index].status = matches ? "passed" : "failed";
+        if (!matches)
+          report.results[index].message = "SDK observation did not match the expected outcome";
+        try {
+          platform?.assertComplete();
+        } catch (error) {
+          report.results[index].status = "failed";
+          report.results[index].message = error.message;
+        }
+      } finally {
+        await platform?.close();
+      }
     }
     await adapter.finish();
     if (

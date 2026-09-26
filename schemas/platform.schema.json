@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:inflow:conformance:platform",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["exchanges"],
+  "properties": {
+    "exchanges": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request", "response"],
+        "properties": {
+          "request": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["method", "path"],
+            "properties": {
+              "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"] },
+              "path": { "type": "string", "pattern": "^/[^\\r\\n#]*$", "maxLength": 2048 },
+              "headers": { "$ref": "#/$defs/requestHeaders" },
+              "json": {}
+            }
+          },
+          "response": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status"],
+            "properties": {
+              "status": { "type": "integer", "minimum": 200, "maximum": 599 },
+              "headers": { "$ref": "#/$defs/responseHeaders" },
+              "json": {},
+              "text": { "type": "string", "maxLength": 65536 },
+              "delay_ms": { "type": "integer", "minimum": 0, "maximum": 1000 },
+              "disconnect": { "type": "boolean" }
+            },
+            "not": { "properties": { "json": {}, "text": {} }, "required": ["json", "text"] }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "requestHeaders": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$", "maxLength": 64 },
+      "additionalProperties": { "type": ["string", "null"], "maxLength": 4096 }
+    },
+    "responseHeaders": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$", "maxLength": 64 },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[\\t\\x20-\\x7e]*$",
+        "maxLength": 4096
+      }
+    }
+  }
+}

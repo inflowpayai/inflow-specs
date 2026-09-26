@@ -11,6 +11,7 @@ import { run, revision } from "../runner/run.mjs";
 import { main } from "../runner/cli.mjs";
 import { selectCases, validate } from "../runner/validation.mjs";
 import { startAdapter } from "../runner/process.mjs";
+import { runtimeScenarios } from "../fixtures/runtime.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const fixture = fileURLToPath(new URL("fixture-adapter.mjs", import.meta.url));
@@ -67,6 +68,33 @@ test("mismatch is a completed failed run, not a crash or skip", async () => {
   assert.equal(report.passed, false);
   assert.equal(report.results[0].status, "failed");
   assert.doesNotMatch(JSON.stringify(report), /hello 雪/);
+});
+
+test("runner checks real HTTP exchanges as well as adapter observations", async () => {
+  const platform = runtimeScenarios["approval.cancel"];
+  const value = {
+    ...item("http"),
+    operation: "fixture.http",
+    input: { requests: platform.exchanges.map(({ request }) => request) },
+    platform,
+    expect: {
+      result: platform.exchanges.map(({ response }) => ({
+        status: response.status,
+        text: Object.hasOwn(response, "json") ? JSON.stringify(response.json) : "",
+      })),
+    },
+  };
+  assert.equal((await run(options("normal", [value]))).passed, true);
+  const missing = { ...value, operation: "fixture.echo", input: { value: value.expect.result } };
+  const failed = await run(options("normal", [missing]));
+  assert.equal(failed.completed, true);
+  assert.equal(failed.passed, false);
+  assert.match(failed.results[0].message, /incomplete/);
+  const overridden = { ...value, input: { ...value.input, base_url: "https://invalid.example" } };
+  assert.match((await run(options("normal", [overridden]))).runner_error, /base_url/);
+  const interrupted = await run({ ...options("hang", [value]), timeoutMs: 100 });
+  assert.equal(interrupted.completed, false);
+  assert.match(interrupted.runner_error, /timed out/);
 });
 
 test("explicit optional omissions coexist with mandatory cases", async () => {

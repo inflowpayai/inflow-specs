@@ -10,6 +10,7 @@ for (const name of [
   "capabilities",
   "implementation",
   "report",
+  "platform",
 ]) {
   ajv.addSchema(
     JSON.parse(await readFile(new URL(`../schemas/${name}.schema.json`, import.meta.url), "utf8")),
