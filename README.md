@@ -30,8 +30,9 @@ does not replace the underlying payment protocol specifications.
 This repository contains a [conformance runner and adapter contract](runner/README.md), schemas, and
 process-level tests for the tooling. A [local mock platform](runner/README.md#local-http-platform)
 and [shared runtime fixtures](contracts/runtime.md) cover synthetic authentication errors and
-approval exchanges. The [MPP corpus](contracts/mpp.md) supplies Core, Buyer, and Seller cases.
-Maintained SDK adapters and x402 cases are not implemented yet. Passing the repository's tooling
+approval exchanges. The [MPP corpus](contracts/mpp.md) supplies Core, Buyer, and Seller cases. The
+[x402 corpus](contracts/x402.md) covers payment identifiers, managed signing, facilitator responses,
+and seller offers. Maintained SDK adapters are not implemented yet. Passing the repository's tooling
 checks does not certify an SDK's payment behavior.
 
 Conformance tools and fixtures are development dependencies. They are not loaded by production SDKs.

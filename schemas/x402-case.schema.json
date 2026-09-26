@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:inflow:conformance:x402-case",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "urn:inflow:conformance:case-index#/properties/cases/items"
+    }
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "suite": {
+          "const": "x402-core"
+        },
+        "operation": {
+          "enum": ["x402.core.identifier-valid"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": {}
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "x402-core"
+        },
+        "operation": {
+          "enum": ["x402.core.identifier-declaration"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "x402-core"
+        },
+        "operation": {
+          "enum": ["x402.core.identifier-entry"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["declaration", "payment_id"],
+          "properties": {
+            "declaration": {
+              "type": "object"
+            },
+            "payment_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": ["object", "null"]
+            }
+          }
+        }
+      }
+    },
+    {
+      "required": ["platform"],
+      "properties": {
+        "suite": {
+          "const": "x402-buyer"
+        },
+        "operation": {
+          "enum": ["x402.buyer.sign", "x402.buyer.cancel", "x402.buyer.concurrent-await"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["api_key", "requirement", "context", "payment_id"],
+          "properties": {
+            "api_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "requirement": {
+              "type": "object"
+            },
+            "context": {
+              "type": "object"
+            },
+            "payment_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300000
+            },
+            "poll_interval_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300000
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "object"
+            }
+          }
+        },
+        "platform": {
+          "$ref": "urn:inflow:conformance:platform"
+        }
+      }
+    },
+    {
+      "required": ["platform"],
+      "properties": {
+        "suite": {
+          "const": "x402-seller"
+        },
+        "operation": {
+          "enum": ["x402.seller.verify", "x402.seller.settle", "x402.seller.verify-settle"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["payment_payload", "payment_requirements"],
+          "properties": {
+            "api_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payment_payload": {
+              "type": "object"
+            },
+            "payment_requirements": {
+              "type": "object"
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "object"
+            }
+          }
+        },
+        "platform": {
+          "$ref": "urn:inflow:conformance:platform"
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "x402-seller"
+        },
+        "operation": {
+          "enum": ["x402.seller.offers"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["config", "options"],
+          "properties": {
+            "config": {
+              "type": "object"
+            },
+            "options": {
+              "type": "object"
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": { "const": "x402-seller" },
+        "operation": { "const": "x402.seller.route" },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["config", "supported", "options"],
+          "properties": {
+            "config": { "type": "object" },
+            "supported": { "type": "object" },
+            "options": { "type": "object" }
+          }
+        },
+        "expect": { "type": "object", "properties": { "result": { "type": "object" } } }
+      }
+    }
+  ]
+}
