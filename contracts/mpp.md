@@ -69,9 +69,18 @@ adapter's sequencing instead of the SDK integration.
 For Buyer fulfilment, choose the public method from the supplied challenge's method and intent. Pass
 `context` as the public per-call options; do not move those options into the challenge. Configure
 the SDK's public poll interval to zero for these deterministic fixtures. Honor the response's
-`retryAfterSeconds`. Pass `timeout_ms` when present. The timeout case allows one second, shorter
-than the pending response's 60-second polling advice; the SDK must stop waiting and cancel the
-approval without another poll. Do not implement timeout or polling in the adapter.
+`retryAfterSeconds`. Pass `timeout_ms` when present. The pending budget starts when transaction
+creation returns and includes both polling delays and polling HTTP requests. It is separate from the
+transport's per-request timeout. A credential received after that budget expires must not be
+returned as a successful result.
+
+The `mpp.buyer.timeout` case allows one second, shorter than the pending response's 60-second
+polling advice; the SDK must stop waiting and cancel the approval without another poll. The
+`mpp.buyer.timeout-during-poll` case allows 500 milliseconds and delays the poll response for one
+second; the SDK must time out and cancel the known approval even though an HTTP request is in
+progress. The report checks the outcome and request sequence, not the exact time of interruption.
+Language-native timeout tests must also verify that a stalled request is interrupted when its
+pending budget expires. Do not implement timeout or polling in the adapter.
 
 For cancellation, invoke the SDK's public cancellation/cleanup control once the initial pending
 response reaches the SDK. Prefer the SDK's public progress notification when available. A
@@ -79,6 +88,28 @@ transparent public transport wrapper may observe that response and schedule canc
 delivery (for example, on the following event-loop turn in Node). It must still perform real HTTP
 and pass the original response through unchanged. It must not send the approval-cancel request
 itself. The 60-second retry advice in this case keeps polling out of the cancellation window.
+
+### Language-native cancellation tests
+
+Cancellation also applies while transaction creation, polling, or existing-subscription
+authorization is in progress. SDKs must expose their language-appropriate cancellation outcome
+rather than report caller cancellation as an unrelated network failure. When a backing approval
+identifier is known, attempt to cancel that approval without replacing the original outcome if
+cancellation fails. If creation is interrupted before an identifier is received, the SDK cannot
+cancel an unknown approval; server-side expiry remains the backstop. Stopping subscription
+authorization must not cancel the existing subscription.
+
+Each SDK must test these three in-flight phases with its native cancellation controls, including
+concurrent requests and reuse after cleanup where those controls support them. Synchronize tests
+with the request actually being in progress; an arbitrary sleep is not proof of that condition.
+Include real local HTTP coverage to verify that the transport honors cancellation, and distinguish
+it from tests using a simulated transport. Do not require a shared error class, thread model, or a
+method named `cleanup` across languages.
+
+These tests supplement the shared cancellation case, which only exercises cancellation between
+requests. A passing shared report alone does not establish in-flight cancellation coverage.
+
+### Seller observations
 
 Successful Seller validation observations contain `success: true`, `challenge`, `credential`,
 `details`, `method`, `intent`, `request`, and `source`. `request` here is decoded. An SDK that

@@ -68,6 +68,24 @@ test("encoded literals, purchase credentials and subscription authorization agre
   }
 });
 
+test("pending timeout cases distinguish waiting between requests from an active poll", () => {
+  const waiting = mppCases.cases.find((item) => item.id === "mpp.buyer.timeout");
+  const polling = mppCases.cases.find((item) => item.id === "mpp.buyer.timeout-during-poll");
+  assert.equal(waiting.platform.exchanges.length, 2);
+  assert.equal(polling.platform.exchanges.length, 3);
+  const [create, poll, cancel] = polling.platform.exchanges;
+  assert.equal(create.response.json.state, "pending");
+  assert.equal(create.response.json.retryAfterSeconds, 0);
+  assert.equal(poll.request.method, "GET");
+  assert.equal(poll.request.path, `/v1/transactions/${create.response.json.transactionId}/mpp`);
+  assert.equal(poll.response.json.state, "ready");
+  assert.ok(poll.response.delay_ms > polling.input.timeout_ms);
+  assert.equal(cancel.request.method, "POST");
+  assert.equal(cancel.request.path, `/v1/approvals/${create.response.json.approvalId}/cancel`);
+  assert.equal(polling.expect.error.code, "payment-timeout");
+  assert.equal(polling.expect.error.details.transaction_id, create.response.json.transactionId);
+});
+
 test("MPP operation schemas reject malformed fixture contracts before starting an adapter", () => {
   const original = mppCases.cases.find((item) => item.id === "mpp.buyer.ready-balance");
   for (const mutate of [
