@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:inflow:conformance:case-index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cases"],
+  "properties": {
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "suite", "operation", "input", "expect"],
+        "properties": {
+          "id": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" },
+          "suite": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" },
+          "feature": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" },
+          "operation": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" },
+          "input": { "type": "object" },
+          "expect": { "$ref": "urn:inflow:conformance:common#/$defs/outcome" }
+        }
+      }
+    }
+  }
+}

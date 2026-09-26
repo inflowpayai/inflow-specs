@@ -31,8 +31,9 @@ Use a focused branch and a Conventional Commit title, such as `docs: clarify set
 `test: cover cancelled payment approval`. Keep the pull request squashed to one commit.
 
 Run `pnpm install --frozen-lockfile` and `pnpm verify`. Report what actually ran and what it proves;
-the formatting check is not a payment conformance test. Include additional checks when introducing
-executable tooling. Do not commit generated reports or dependency directories.
+the fixture-adapter tests verify the runner, not payment conformance. Follow the
+[adapter contract](runner/README.md) when adding cases or SDK adapters. Do not commit generated
+reports or dependency directories.
 
 Follow the shared
 [Code of Conduct](https://github.com/inflowpayai/.github/blob/main/CODE_OF_CONDUCT.md) and

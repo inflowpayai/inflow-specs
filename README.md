@@ -27,9 +27,9 @@ does not replace the underlying payment protocol specifications.
 
 ## Verification status
 
-This repository contains contribution and revision guidance and a formatting check. It does not yet
-provide executable conformance cases, mock payment services, or a runner. Passing its current check
-does not certify an SDK's payment behavior.
+This repository contains a [conformance runner and adapter contract](runner/README.md), schemas, and
+process-level tests for the tooling. It does not yet provide payment conformance cases, mock payment
+services, or SDK adapters. Passing its current checks does not certify an SDK's payment behavior.
 
 Conformance tools and fixtures are development dependencies. They are not loaded by production SDKs.
 Tests must use synthetic credentials and local services; live payments require separate explicit
@@ -54,8 +54,9 @@ pnpm install --frozen-lockfile
 pnpm verify
 ```
 
-To apply formatting, run `pnpm format`. The same verification command runs on pull requests and
-pushes to `main`. Tooling is private and is not published as an npm package.
+Verification checks formatting and runs the tooling tests with coverage thresholds. To apply
+formatting, run `pnpm format`. The same verification command runs on pull requests and pushes to
+`main`. Tooling is private and is not published as an npm package.
 
 ## Contributing and policies
 
