@@ -28,8 +28,10 @@ does not replace the underlying payment protocol specifications.
 ## Verification status
 
 This repository contains a [conformance runner and adapter contract](runner/README.md), schemas, and
-process-level tests for the tooling. It does not yet provide payment conformance cases, mock payment
-services, or SDK adapters. Passing its current checks does not certify an SDK's payment behavior.
+process-level tests for the tooling. A [local mock platform](runner/README.md#local-http-platform)
+and [shared runtime fixtures](contracts/runtime.md) cover synthetic authentication errors and
+approval exchanges. Protocol payment cases and SDK adapters are not implemented yet. Passing its
+current checks does not certify an SDK's payment behavior.
 
 Conformance tools and fixtures are development dependencies. They are not loaded by production SDKs.
 Tests must use synthetic credentials and local services; live payments require separate explicit

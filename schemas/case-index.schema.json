@@ -19,6 +19,7 @@
           "feature": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" },
           "operation": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" },
           "input": { "type": "object" },
+          "platform": { "$ref": "urn:inflow:conformance:platform" },
           "expect": { "$ref": "urn:inflow:conformance:common#/$defs/outcome" }
         }
       }

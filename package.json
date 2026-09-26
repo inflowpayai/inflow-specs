@@ -10,7 +10,7 @@
     "conformance": "node runner/cli.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test --experimental-test-coverage --test-coverage-include='runner/*.mjs' --test-coverage-lines=90 --test-coverage-functions=90 test/*.test.mjs",
+    "test": "node --test --experimental-test-coverage --test-coverage-include='runner/*.mjs' --test-coverage-include='fixtures/*.mjs' --test-coverage-lines=90 --test-coverage-functions=90 test/*.test.mjs",
     "verify": "pnpm format:check && pnpm test"
   },
   "devDependencies": {
