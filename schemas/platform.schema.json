@@ -48,7 +48,25 @@
       "type": "object",
       "maxProperties": 32,
       "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$", "maxLength": 64 },
-      "additionalProperties": { "type": ["string", "null"], "maxLength": 4096 }
+      "additionalProperties": {
+        "oneOf": [
+          { "type": ["string", "null"], "maxLength": 4096 },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["capture"],
+            "properties": {
+              "capture": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["same"],
+            "properties": { "same": { "$ref": "urn:inflow:conformance:common#/$defs/identifier" } }
+          }
+        ]
+      }
     },
     "responseHeaders": {
       "type": "object",

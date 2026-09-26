@@ -85,12 +85,13 @@ export async function run({
           ? { result: response.result }
           : { error: response.error };
         const matches = isDeepStrictEqual(observed, item.expect);
-        report.results[index].status = matches ? "passed" : "failed";
-        if (!matches)
-          report.results[index].message = "SDK observation did not match the expected outcome";
         try {
-          platform?.assertComplete();
+          await platform?.waitComplete(timeoutMs, signal);
+          report.results[index].status = matches ? "passed" : "failed";
+          if (!matches)
+            report.results[index].message = "SDK observation did not match the expected outcome";
         } catch (error) {
+          if (signal?.aborted) throw error;
           report.results[index].status = "failed";
           report.results[index].message = error.message;
         }

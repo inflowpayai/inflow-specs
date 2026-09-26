@@ -1,0 +1,393 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:inflow:conformance:mpp-case",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "urn:inflow:conformance:case-index#/properties/cases/items"
+    },
+    {
+      "if": { "properties": { "suite": { "enum": ["mpp-buyer", "mpp-seller"] } } },
+      "then": {
+        "required": ["platform"],
+        "properties": { "platform": { "$ref": "urn:inflow:conformance:platform" } }
+      }
+    }
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "suite": {
+          "const": "mpp-core"
+        },
+        "operation": {
+          "enum": ["mpp.core.encode"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": {}
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "mpp-core"
+        },
+        "operation": {
+          "enum": ["mpp.core.decode"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {}
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "mpp-core"
+        },
+        "operation": {
+          "enum": ["mpp.core.decode-credential"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "$ref": "#/$defs/credential"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "mpp-core"
+        },
+        "operation": {
+          "enum": ["mpp.core.decode-receipt"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "mpp-core"
+        },
+        "operation": {
+          "enum": ["mpp.core.parse-challenges"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["headers"],
+          "properties": {
+            "headers": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/challenge"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "mpp-buyer"
+        },
+        "operation": {
+          "enum": ["mpp.buyer.fulfil", "mpp.buyer.cancel"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["api_key", "challenge", "context"],
+          "properties": {
+            "api_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "challenge": {
+              "$ref": "#/$defs/challenge"
+            },
+            "context": {
+              "type": "object"
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 300000
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "$ref": "#/$defs/credential"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "mpp-seller"
+        },
+        "operation": {
+          "enum": ["mpp.seller.validate", "mpp.seller.verify"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["api_key", "credential"],
+          "properties": {
+            "api_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "credential": {
+              "$ref": "#/$defs/credential"
+            },
+            "include_problem": {
+              "type": "boolean"
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "mpp-seller"
+        },
+        "operation": {
+          "enum": ["mpp.seller.prepare"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["api_key", "method", "intent", "request"],
+          "properties": {
+            "api_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "method": {
+              "enum": ["inflow", "tempo"]
+            },
+            "intent": {
+              "enum": ["charge", "subscription"]
+            },
+            "request": {
+              "type": "object"
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "suite": {
+          "const": "mpp-seller"
+        },
+        "operation": {
+          "enum": ["mpp.seller.route-binding"]
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "api_key",
+            "method",
+            "intent",
+            "request",
+            "replacement_request",
+            "credential_payload",
+            "source"
+          ],
+          "properties": {
+            "api_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "method": {
+              "enum": ["inflow", "tempo"]
+            },
+            "intent": {
+              "enum": ["charge", "subscription"]
+            },
+            "request": {
+              "type": "object"
+            },
+            "replacement_request": {
+              "type": "object"
+            },
+            "credential_payload": {
+              "type": "object"
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status"],
+              "properties": {
+                "status": {
+                  "const": 402
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "challenge": {
+      "type": "object",
+      "required": ["id", "realm", "method", "intent", "request"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "realm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "credential": {
+      "type": "object",
+      "required": ["challenge", "payload"],
+      "properties": {
+        "challenge": {
+          "$ref": "#/$defs/challenge"
+        },
+        "payload": {
+          "type": "object"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
