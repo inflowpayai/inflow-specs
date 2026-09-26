@@ -1,0 +1,17 @@
+{
+  "name": "inflow-specs-tooling",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "pnpm format:check"
+  },
+  "devDependencies": {
+    "prettier": "3.8.1"
+  }
+}
