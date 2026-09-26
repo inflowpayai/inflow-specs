@@ -407,6 +407,21 @@ add(
   [create("balance", { ...pending, retryAfterSeconds: 60 }), cancel()],
 );
 add(
+  "mpp.buyer.timeout-during-poll",
+  "mpp-buyer",
+  "mpp.buyer.fulfil",
+  buyerInput("balance", { timeout_ms: 500 }),
+  failure("payment-timeout", { transaction_id: transactionId }),
+  [
+    create("balance", pending),
+    {
+      ...poll(ready("balance")),
+      response: { status: 200, json: ready("balance"), delay_ms: 1000 },
+    },
+    cancel(),
+  ],
+);
+add(
   "mpp.buyer.cancel",
   "mpp-buyer",
   "mpp.buyer.cancel",
