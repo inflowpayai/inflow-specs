@@ -89,6 +89,30 @@ delivery (for example, on the following event-loop turn in Node). It must still 
 and pass the original response through unchanged. It must not send the approval-cancel request
 itself. The 60-second retry advice in this case keeps polling out of the cancellation window.
 
+### Core API transport
+
+The API transport must not automatically follow redirects. Surface the redirect as an HTTP failure,
+preserving its status and location for the caller; do not forward API credentials or the request
+body to its destination. Verify this with two real local HTTP origins and synthetic credentials.
+
+Caller cancellation stops both an in-flight request and any retry delay. A cancelled call must not
+start another HTTP attempt or obtain credentials for a retry. Test cancellation before the request,
+during headers/body receipt, and during both status-error and network-error retry waits. Cover the
+language's supported cancellation reasons, rather than recognizing cancellation only by an exception
+name. Core transport errors retain each SDK's native error representation; the Buyer workflow's
+payment-cancellation result is a separate layer.
+
+Transaction creation and existing-subscription authorization default to zero automatic retries. The
+first request may have created an approval or authorization even when its response was lost. An
+explicit retry override may be supported, but callers must understand that it can create another
+record. Read operations retain their transient-error retry policy. This does not change broadcast
+idempotency or authorize a retry of an entire payment workflow.
+
+Language-native tests must exercise these defaults through the public Core client, separately from
+Buyer orchestration that supplies its own retry settings. Verify explicit overrides without mutating
+caller-owned options. These transport checks supplement the shared corpus; its Buyer cases do not
+establish the direct Core client's retry behavior.
+
 ### Language-native cancellation tests
 
 Cancellation also applies while transaction creation, polling, or existing-subscription
