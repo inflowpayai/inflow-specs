@@ -428,6 +428,24 @@ for (const [name, operation, response, status] of [
   ],
   ["settle-unrelated-conflict", "settle", { code: "CONFLICT" }, 409],
   ["verify-unrecognized-412", "verify", { code: "PRECONDITION_FAILED" }, 412],
+  [
+    "verify-contradictory-412",
+    "verify",
+    { isValid: true, invalidReason: "permit2_allowance_required" },
+    412,
+  ],
+  [
+    "verify-string-validity-412",
+    "verify",
+    { isValid: "false", invalidReason: "permit2_allowance_required" },
+    412,
+  ],
+  [
+    "verify-unrelated-reason-412",
+    "verify",
+    { isValid: false, invalidReason: "unrelated_precondition" },
+    412,
+  ],
 ]) {
   const input = sellerInput();
   add(
