@@ -158,6 +158,18 @@ requests. A passing shared report alone does not establish in-flight cancellatio
 
 ### Seller observations
 
+Seller implementations that cache platform configuration must allow a later operation to load it
+again after a failed request. A failed load must not permanently disable a long-lived Seller
+instance. Concurrent operations should share an in-flight configuration load. This does not require
+periodic refresh of successful configuration or changes to issued challenge bindings. Cover failure,
+later recovery, and concurrent callers in each SDK's native tests.
+
+When a framework integration exposes per-offer selection callbacks, apply them consistently to
+charge and subscription offers, with the corresponding request fields available to the callback.
+Test allowed and denied offers and callback failure through the actual framework. Offer selection
+controls which challenges are advertised; it is not resource authorization or payment validation. An
+integration must not represent hiding an offer as revoking an already-issued credential.
+
 Successful Seller validation observations contain `success: true`, `challenge`, `credential`,
 `details`, `method`, `intent`, `request`, and `source`. `request` here is decoded. An SDK that
 signals successful validation by returning an envelope rather than a boolean normalizes that
