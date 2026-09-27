@@ -84,10 +84,20 @@ test("x402 signing values remain consistent across creation, polling and returne
         );
         assert.deepEqual(decoded, response.json.paymentPayload);
         assert.deepEqual(decoded.accepted, item.input.requirement);
-        assert.deepEqual(item.expect.result.paymentPayload, decoded);
+        if (item.expect.result) assert.deepEqual(item.expect.result.paymentPayload, decoded);
       }
     }
   }
+});
+
+test("delayed signed payload crosses the buyer wait budget without automatic cancellation", () => {
+  const item = x402Cases.cases.find((value) => value.id === "x402.buyer.timeout-during-poll");
+  assert.equal(item.expect.error.code, "payment-timeout");
+  assert.equal(item.platform.exchanges.length, 3);
+  const last = item.platform.exchanges.at(-1);
+  assert.ok(last.response.json.encodedPayload);
+  assert.ok(last.response.delay_ms > item.input.timeout_ms);
+  assert.equal(last.request.method, "GET");
 });
 
 test("x402 settlement retries keep complete payment requests identical", () => {

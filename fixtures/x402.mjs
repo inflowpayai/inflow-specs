@@ -245,6 +245,33 @@ add("x402.buyer.transient-poll-failure", "x402-buyer", "x402.buyer.sign", buyerI
   poll({ code: "TEMPORARY_ERROR" }, 503),
   poll(ready()),
 ]);
+for (const status of [401, 403, 404]) {
+  const body = { errors: [{ code: "DENIED", message: "Access denied." }] };
+  add(
+    `x402.buyer.permanent-poll-${status}`,
+    "x402-buyer",
+    "x402.buyer.sign",
+    buyerInput(),
+    failure("api-error", { body }, status),
+    [buyerSupport(), create(), poll(body, status)],
+  );
+}
+add("x402.buyer.rate-limited-poll", "x402-buyer", "x402.buyer.sign", buyerInput(), signed(), [
+  buyerSupport(),
+  create(),
+  poll({ code: "RATE_LIMITED" }, 429),
+  poll(ready()),
+]);
+const delayedReady = poll(ready());
+delayedReady.response.delay_ms = 1000;
+add(
+  "x402.buyer.timeout-during-poll",
+  "x402-buyer",
+  "x402.buyer.sign",
+  { ...buyerInput(), timeout_ms: 500 },
+  failure("payment-timeout"),
+  [buyerSupport(), create(), delayedReady],
+);
 add(
   "x402.buyer.create-not-retried",
   "x402-buyer",
