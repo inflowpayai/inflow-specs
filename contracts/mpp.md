@@ -75,7 +75,9 @@ transport's per-request timeout. A credential received after that budget expires
 returned as a successful result.
 
 The `mpp.buyer.timeout` case allows one second, shorter than the pending response's 60-second
-polling advice; the SDK must stop waiting and cancel the approval without another poll. The
+polling advice; the SDK must stop waiting and cancel the approval without another poll. The wait
+must recheck its target time after an early timer wake rather than poll before the advised delay or
+treat an unfinished wait as timeout completion. Test cancellation during that remaining wait. The
 `mpp.buyer.timeout-during-poll` case allows 500 milliseconds and delays the poll response for one
 second; the SDK must time out and cancel the known approval even though an HTTP request is in
 progress. The report checks the outcome and request sequence, not the exact time of interruption.
@@ -88,6 +90,27 @@ transparent public transport wrapper may observe that response and schedule canc
 delivery (for example, on the following event-loop turn in Node). It must still perform real HTTP
 and pass the original response through unchanged. It must not send the approval-cancel request
 itself. The 60-second retry advice in this case keeps polling out of the cancellation window.
+
+### Core codecs and method schemas
+
+Challenge header codecs must escape and unescape quoted values consistently, including the realm,
+and reject control characters that could corrupt a header. Test literal wire values as well as round
+trips; a serializer and parser can otherwise share the same mistake.
+
+Tempo credential payload validation requires `signature` for `transaction` and `proof`, and `hash`
+for `hash`. An unrelated proof field does not satisfy the selected type. These shape checks do not
+verify a signature or establish settlement; the platform performs those checks.
+
+InFlow-issued credentials carry a payer `source`. This is not a universal requirement of the MPP
+envelope: individual payment methods determine when source is required. SDK changes must preserve
+the payer identity used by the platform's transaction and subscription binding checks.
+
+If an SDK exposes subscription-option fingerprinting, unusable decoded requests must not crash
+option listing. Test malformed JSON, non-object requests, and missing or non-string amounts
+alongside valid options. Fingerprinting is not payment-request validation and must not replace it.
+
+These checks belong in the language-native codec and schema tests; the shared corpus does not
+exercise every exported helper or schema.
 
 ### Core API transport
 
