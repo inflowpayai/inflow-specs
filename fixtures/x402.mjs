@@ -207,6 +207,17 @@ add(
   { result: null },
 );
 
+add(
+  "x402.core.identifier-null-properties",
+  "x402-core",
+  "x402.core.identifier-entry",
+  {
+    declaration: { info: { required: false }, schema: { ...identifierSchema, properties: null } },
+    payment_id: paymentId,
+  },
+  { result: null },
+);
+
 for (const [name, requirement] of [
   ["balance", balance],
   ["exact", exact],
