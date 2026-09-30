@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { once, EventEmitter } from "node:events";
-import { isDeepStrictEqual } from "node:util";
+import { matchesRequest } from "./comparison.mjs";
 import { validate } from "./validation.mjs";
 
 const MAX_BODY = 65536;
@@ -98,7 +98,8 @@ export async function startPlatform(configuration) {
       try {
         if (Object.hasOwn(expected, "json")) {
           const body = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks));
-          if (!isDeepStrictEqual(JSON.parse(body), expected.json)) return reject();
+          if (!matchesRequest(request.method, request.url, JSON.parse(body), expected.json))
+            return reject();
         } else if (size !== 0) return reject();
       } catch {
         return reject();
