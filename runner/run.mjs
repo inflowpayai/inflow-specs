@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from "node:util";
 import { startAdapter } from "./process.mjs";
 import { startPlatform } from "./platform.mjs";
 import { selectCases, validate } from "./validation.mjs";
+import { matchesOutcome } from "./comparison.mjs";
 
 export function revision(directory) {
   const options = {
@@ -84,7 +85,7 @@ export async function run({
         const observed = Object.hasOwn(response, "result")
           ? { result: response.result }
           : { error: response.error };
-        const matches = isDeepStrictEqual(observed, item.expect);
+        const matches = matchesOutcome(item.operation, observed, item.expect);
         try {
           await platform?.waitComplete(timeoutMs, signal);
           report.results[index].status = matches ? "passed" : "failed";

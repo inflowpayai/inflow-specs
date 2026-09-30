@@ -81,9 +81,11 @@ operation, an input object, and exactly one expected `result` or `error`. The op
 which public SDK call an adapter makes. Its input and result definitions belong to that operation's
 suite. The envelope schemas do not invent shapes for future payment operations.
 
-Comparisons are exact: all object members must match, array order matters, and omitted members
-differ from explicit `null`. Object member order does not matter. Encode amounts or identifiers that
-require exact large-integer handling as strings in the operation contract; JSON numbers pass through
+Except for the two documented
+[x402 serialization equivalences](../contracts/x402.md#cross-language-json-comparisons), comparisons
+are exact: all object members must match, array order matters, and omitted members differ from
+explicit `null`. Object member order does not matter. Encode amounts or identifiers that require
+exact large-integer handling as strings in the operation contract; JSON numbers pass through
 JavaScript number parsing. Do not put nondeterministic values in expected results. Normalize only
 fields the operation contract explicitly defines for normalization.
 
