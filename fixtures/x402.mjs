@@ -403,7 +403,7 @@ for (const [name, operation, response, status] of [
   [
     "settle-rejected",
     "settle",
-    { success: false, transaction: "", errorReason: "settlement_failed" },
+    { success: false, transaction: "", network: "inflow:1", errorReason: "settlement_failed" },
     200,
   ],
 ]) {
@@ -423,7 +423,7 @@ for (const [name, operation, response, status] of [
   [
     "settle-conflict",
     "settle",
-    { success: false, transaction: "", errorReason: "idempotency_conflict" },
+    { success: false, transaction: "", network: "inflow:1", errorReason: "idempotency_conflict" },
     409,
   ],
   ["settle-unrelated-conflict", "settle", { code: "CONFLICT" }, 409],
@@ -459,7 +459,12 @@ for (const [name, operation, response, status] of [
 }
 for (const exhausted of [false, true]) {
   const input = sellerInput();
-  const pending = { success: false, transaction: "", errorReason: "idempotency_pending" };
+  const pending = {
+    success: false,
+    transaction: "",
+    network: "inflow:1",
+    errorReason: "idempotency_pending",
+  };
   const pendingExchange = facilitator("settle", input, pending, 409);
   pendingExchange.response.headers = { "retry-after": "0" };
   const exchanges = Array.from({ length: exhausted ? 5 : 2 }, () => clone(pendingExchange));

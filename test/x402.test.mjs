@@ -70,6 +70,16 @@ test("x402 schemas reject contradictory suite, operation and input combinations"
   }
 });
 
+test("settlement response fixtures include the requested network on success and failure", () => {
+  for (const item of x402Cases.cases.filter((value) => value.suite === "x402-seller")) {
+    for (const { request, response } of item.platform?.exchanges ?? []) {
+      if (request.path === "/v1/x402/settle" && typeof response.json?.success === "boolean") {
+        assert.equal(response.json.network, request.json.paymentRequirements.network);
+      }
+    }
+  }
+});
+
 test("x402 signing values remain consistent across creation, polling and returned payload", () => {
   for (const item of x402Cases.cases.filter((value) => value.suite === "x402-buyer")) {
     for (const { request, response } of item.platform.exchanges) {
