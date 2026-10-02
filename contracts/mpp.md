@@ -10,9 +10,27 @@ node fixtures/mpp.mjs > /tmp/inflow-mpp-cases.json
 ```
 
 Use that file as `--cases` with the [runner](../runner/README.md). Select `mpp-core`, `mpp-buyer`,
-and/or `mpp-seller` for the roles implemented by the SDK. Cases within each selected suite are
-mandatory. The corpus does not certify unselected roles, optional MCP integration, TAP, live
-settlement, or the platform's database/replay implementation.
+and/or `mpp-seller` for the roles implemented by the SDK. Cases without a feature declaration within
+each selected suite are mandatory. The corpus does not certify unselected roles, optional MCP
+integration, TAP, live settlement, or the platform's database/replay implementation.
+
+### Seller subscription capability
+
+Seller cases with the `subscription` intent declare the feature `mpp-seller-subscriptions`. An SDK
+selecting `mpp-seller` must explicitly declare that feature as supported, or unsupported with a
+reason. Supported SDKs execute every subscription case, including rejection and route-binding
+checks. Unsupported SDKs retain those cases as explicit skips in their reports; their charge cases
+remain mandatory. This declaration does not exclude any Buyer subscription cases.
+
+For example, an integration whose upstream framework cannot expose subscription terms can report
+that limitation without claiming subscription conformance or omitting the entire Seller suite. A
+failing implementation of a supported feature must be fixed, not reclassified as unsupported.
+
+Adapters adopting this contract revision must supply the declaration. Node and Go support Seller
+subscriptions and must list `mpp-seller-subscriptions` in `supported_features` when selecting the
+Seller suite. The Python integration does not expose Seller subscriptions and declares the feature
+in `unsupported_features`, with its upstream limitation as the reason. Update each SDK's contract
+pin and capability declaration together.
 
 ## Evidence and limits
 

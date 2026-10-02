@@ -54,6 +54,10 @@ const add = (id, suite, operation, input, expect, exchanges) => {
       id,
       suite,
       operation,
+      ...(suite === "mpp-seller" &&
+      (input.intent ?? input.credential?.challenge?.intent) === "subscription"
+        ? { feature: "mpp-seller-subscriptions" }
+        : {}),
       input,
       expect,
       ...(exchanges ? { platform: { exchanges } } : {}),

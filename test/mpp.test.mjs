@@ -17,7 +17,7 @@ test("MPP corpus exports a deterministic case index for the runner", () => {
   validate("case-index", mppCases);
   const selected = selectCases(mppCases, {
     suites: ["mpp-core", "mpp-buyer", "mpp-seller"],
-    supported_features: [],
+    supported_features: ["mpp-seller-subscriptions"],
     unsupported_features: [],
   });
   assert.equal(selected.length, mppCases.cases.length);
@@ -33,6 +33,50 @@ test("MPP corpus exports a deterministic case index for the runner", () => {
       });
     }
   }
+});
+
+test("Seller subscription capability preserves charge and Buyer requirements", () => {
+  const capabilities = {
+    suites: ["mpp-core", "mpp-buyer", "mpp-seller"],
+    supported_features: [],
+    unsupported_features: [
+      {
+        id: "mpp-seller-subscriptions",
+        reason: "Upstream Seller framework cannot expose subscription terms.",
+      },
+    ],
+  };
+  const expected = [
+    "mpp.seller.validate-subscription",
+    "mpp.seller.verify-subscription",
+    "mpp.seller.validation-rejected-subscription",
+    "mpp.seller.broadcast-rejected-subscription",
+    "mpp.seller.prepare-subscription",
+    "mpp.seller.unsupported-intent-currency",
+    "mpp.seller.route-binding-subscription-1",
+    "mpp.seller.route-binding-subscription-2",
+    "mpp.seller.route-binding-subscription-3",
+    "mpp.seller.subscription-renewal-in-progress",
+  ].sort();
+  const selected = selectCases(mppCases, capabilities);
+  assert.equal(selected.length, mppCases.cases.length);
+  assert.deepEqual(
+    selected
+      .filter(({ omission }) => omission !== null)
+      .map(({ item }) => item.id)
+      .sort(),
+    expected,
+  );
+  assert.throws(
+    () => selectCases(mppCases, { ...capabilities, unsupported_features: [] }),
+    /feature/i,
+  );
+  const buyerOnly = selectCases(mppCases, {
+    suites: ["mpp-core", "mpp-buyer"],
+    supported_features: [],
+    unsupported_features: [],
+  });
+  assert.ok(buyerOnly.every(({ omission }) => omission === null));
 });
 
 test("encoded literals, purchase credentials and subscription authorization agree with their exchanges", () => {
