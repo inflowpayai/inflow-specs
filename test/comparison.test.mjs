@@ -4,6 +4,65 @@ import { matchesRequest, matchesOutcome } from "../runner/comparison.mjs";
 import { startPlatform } from "../runner/platform.mjs";
 import { run } from "../runner/run.mjs";
 import { fileURLToPath } from "node:url";
+import { x402Cases } from "../fixtures/x402.mjs";
+
+test("EIP-2612 route descriptions allow wording differences without changing constraints", () => {
+  const expected = x402Cases.cases.find(
+    (item) => item.id === "x402.seller.sponsorship-prefers-eip2612",
+  ).expect;
+  const actual = structuredClone(expected);
+  const extension = actual.result.extensions.eip2612GasSponsoring;
+  extension.info.description =
+    "The facilitator accepts EIP-2612 gasless Permit to Permit2 canonical contract.";
+  extension.schema.properties.amount.description = "The amount to approve (uint256).";
+  extension.schema.properties.nonce.description = "The current EIP-2612 nonce of the sender.";
+  const before = structuredClone({ actual, expected });
+  assert.equal(matchesOutcome("x402.seller.route", actual, expected), true);
+  assert.equal(matchesOutcome("x402.seller.route", expected, actual), true);
+  assert.deepEqual({ actual, expected }, before);
+  for (const operation of ["x402.seller.offers", "x402.buyer.sign", "x402.seller.settle"]) {
+    assert.equal(matchesOutcome(operation, actual, expected), false);
+  }
+  assert.equal(matchesRequest("POST", "/v1/x402/settle", actual, expected), false);
+  for (const field of ["info", "amount", "nonce"]) {
+    for (const replacement of [undefined, null, false, 3, []]) {
+      const changed = structuredClone(expected);
+      const target = changed.result.extensions.eip2612GasSponsoring;
+      const annotation = field === "info" ? target.info : target.schema.properties[field];
+      if (replacement === undefined) delete annotation.description;
+      else annotation.description = replacement;
+      assert.equal(matchesOutcome("x402.seller.route", changed, expected), false);
+    }
+  }
+  for (const mutate of [
+    (value) => {
+      value.result.accepts[0].price.amount = "999";
+    },
+    (value) => {
+      value.result.extensions.eip2612GasSponsoring.schema.properties.amount.type = "number";
+    },
+    (value) => {
+      value.result.extensions.eip2612GasSponsoring.schema.required = [];
+    },
+    (value) => {
+      value.result.extensions.eip2612GasSponsoring.schema.properties.nonce.pattern = "other";
+    },
+    (value) => {
+      value.result.extensions.eip2612GasSponsoring.schema.properties.from.description = "other";
+    },
+    (value) => {
+      delete value.result.extensions.eip2612GasSponsoring.info;
+    },
+    (value) => {
+      value.result.extensions.other = { info: { description: "other" } };
+    },
+  ]) {
+    const changed = structuredClone(expected);
+    mutate(changed);
+    assert.equal(matchesOutcome("x402.seller.route", changed, expected), false);
+  }
+  assert.equal(matchesOutcome("x402.seller.route", null, {}), false);
+});
 
 test("the real HTTP platform applies only the x402 request rule", async () => {
   const platform = await startPlatform({

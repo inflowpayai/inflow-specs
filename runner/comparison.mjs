@@ -23,6 +23,18 @@ export function matchesRequest(method, path, actual, expected) {
 export function matchesOutcome(operation, actual, expected) {
   const left = structuredClone(actual);
   const right = structuredClone(expected);
+  if (operation === "x402.seller.route") {
+    for (const value of [left, right]) {
+      const extension = value?.result?.extensions?.eip2612GasSponsoring;
+      for (const annotation of [
+        extension?.info,
+        extension?.schema?.properties?.amount,
+        extension?.schema?.properties?.nonce,
+      ]) {
+        if (typeof annotation?.description === "string") annotation.description = "";
+      }
+    }
+  }
   if (["x402.buyer.sign", "x402.buyer.concurrent-await"].includes(operation)) {
     omitEmptyExtra(left?.result?.paymentPayload?.accepted);
     omitEmptyExtra(right?.result?.paymentPayload?.accepted);
