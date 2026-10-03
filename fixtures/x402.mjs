@@ -764,5 +764,27 @@ add(
 );
 
 export const x402Cases = { cases };
+
+export function x402CasesForOwnedPayments() {
+  const index = clone(x402Cases);
+  for (const item of index.cases) {
+    if (item.operation === "x402.buyer.concurrent-await") {
+      item.feature = "x402-shared-payment-wait";
+    } else if (
+      item.operation === "x402.buyer.sign" &&
+      item.expect.error &&
+      item.platform.exchanges.some(
+        ({ request, response }) =>
+          request.path === "/v1/transactions/x402" &&
+          response.status === 200 &&
+          response.json?.approvalId === approvalId,
+      )
+    ) {
+      item.platform.exchanges.push(cancel());
+    }
+  }
+  return index;
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
   process.stdout.write(`${JSON.stringify(x402Cases, null, 2)}\n`);
