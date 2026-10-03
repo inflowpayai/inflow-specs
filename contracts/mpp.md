@@ -35,7 +35,10 @@ pin and capability declaration together.
 ## Evidence and limits
 
 These cases cover the InFlow HTTP contract and SDK behavior, not every feature of the underlying MPP
-protocol. The Node reference inspected is commit
+protocol. For Stripe Shared Payment Token acceptance, use the separate
+[Stripe charge contract and corpus](stripe.md).
+
+The Node reference inspected for the ordinary MPP cases is commit
 [`bfa2c3f`](https://github.com/inflowpayai/inflow-node/tree/bfa2c3f88b6f0c104f39887dce15779b88d42885):
 
 - [Core codecs and literal wire vectors](https://github.com/inflowpayai/inflow-node/blob/bfa2c3f88b6f0c104f39887dce15779b88d42885/packages/mpp/test/unit/server-vectors.test.ts).
