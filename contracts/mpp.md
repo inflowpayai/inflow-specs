@@ -174,6 +174,33 @@ method named `cleanup` across languages.
 These tests supplement the shared cancellation case, which only exercises cancellation between
 requests. A passing shared report alone does not establish in-flight cancellation coverage.
 
+### Signed test challenges
+
+The default corpus uses synthetic challenge identifiers for method-level validation and settlement
+hooks. A full Seller API can additionally check challenge signatures and expiration before it calls
+those hooks. Use `mppCasesWithSellerChallenges(sign)` from `fixtures/mpp.mjs` to test that API
+without bypassing its checks.
+
+The synchronous `sign` callback receives a copy of each balance, instrument, and Tempo charge
+challenge. It returns `{ id, expires }`, signed with a test-only Seller secret and a future
+expiration, using the SDK or its upstream challenge factory. The factory must sign the supplied
+realm, method, intent, and encoded request unchanged, together with the returned expiration.
+Configure the tested Seller with the same realm and secret. Do not use production credentials or
+signing keys.
+
+Generate the case index before starting the runner. The generator inserts those identifiers and
+expirations into the charge validation/settlement inputs, expected echoes, platform scripts, and
+receipt encodings. Deliberately inconsistent responses remain inconsistent. Payment amounts,
+payloads, failure classifications, and request sequences do not change. Core, Buyer, preparation,
+route-binding, and subscription cases retain their original values. The existing `mppCases` export
+is unchanged.
+
+The adapter still receives only input and must call the public Seller API. It must not re-sign a
+credential after receiving it, inspect expected outcomes, or normalize failed signature verification
+into successful payment. Reports fingerprint the generated index, so retain it with the report for
+reproduction. A signed challenge establishes test provenance, not a real payment signature or live
+settlement.
+
 ### Seller observations
 
 Seller implementations that cache platform configuration must allow a later operation to load it
