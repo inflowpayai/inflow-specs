@@ -37,6 +37,10 @@ Shared Payment Tokens separately from the ordinary MPP cases. SDK adapters live 
 repositories. Passing the repository's tooling checks does not certify an SDK's payment behavior.
 
 Conformance tools and fixtures are development dependencies. They are not loaded by production SDKs.
+The separate [TAP Seller verification contract](contracts/tap.md) defines the stronger InFlow
+request-signature profile and its acceptance requirements. It does not yet include a shared
+executable TAP corpus or certify the existing SDK implementations.
+
 Tests must use synthetic credentials and local services; live payments require separate explicit
 authorization.
 
