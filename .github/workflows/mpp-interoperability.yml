@@ -1,0 +1,89 @@
+name: MPP interoperability
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mpp-interoperability-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: specs
+          persist-credentials: false
+      - name: Read SDK revisions
+        id: pins
+        run: |
+          for language in node go python rust; do
+            revision=$(jq -er --arg language "$language" '.[$language] | select(test("^[0-9a-f]{40}$"))' specs/interop/sdk-lock.json)
+            echo "$language=$revision" >> "$GITHUB_OUTPUT"
+          done
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-node
+          ref: ${{ steps.pins.outputs.node }}
+          path: sdks/inflow-node
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-go
+          ref: ${{ steps.pins.outputs.go }}
+          path: sdks/inflow-go
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-python
+          ref: ${{ steps.pins.outputs.python }}
+          path: sdks/inflow-python
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-rust
+          ref: ${{ steps.pins.outputs.rust }}
+          path: sdks/inflow-rust
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: sdks/inflow-node/package.json
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.1"
+          cache-dependency-path: sdks/inflow-go/go.sum
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.11.8"
+      - name: Build Node packages
+        working-directory: sdks/inflow-node
+        run: pnpm install --frozen-lockfile && pnpm build
+      - name: Install Python dependencies
+        working-directory: sdks/inflow-python
+        run: uv sync --all-extras --all-groups --locked --python 3.14
+      - name: Install Rust
+        working-directory: sdks/inflow-rust
+        run: rustup toolchain install 1.93.0 --profile minimal
+      - name: Run all Buyer and Seller pairs
+        working-directory: specs
+        run: node interop/mpp.mjs ../sdks "$RUNNER_TEMP/mpp-matrix"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mpp-interoperability
+          path: |
+            ${{ runner.temp }}/mpp-matrix/*.json
+            ${{ runner.temp }}/mpp-matrix/*.txt
+          if-no-files-found: warn
+          retention-days: 30
