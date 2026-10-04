@@ -57,6 +57,42 @@ upstream dependency versions tested. SDK releases and MPP/x402 protocol versions
 of the contract revision. A passing run against one dependency version does not prove compatibility
 with every version allowed by its dependency range.
 
+## SDK compatibility and support
+
+Each SDK has its own release versions. Matching version numbers across languages are not required.
+We support the latest stable release of each SDK; fixes for older releases are considered
+individually, without a commitment to maintained release branches. For Node, this applies to each
+published package.
+
+Before version 1.0, incompatible public API changes require a minor increment; compatible fixes use
+a patch increment. From version 1.0, releases follow semantic versioning. Published versions and
+release tags must not be replaced.
+
+The table describes dependency declarations, not certification of every permitted dependency
+version. Follow the linked manifests for exact requirements and the SDK release's verification
+reports for the versions actually tested.
+
+| SDK                                                    | Runtime and CI coverage                      | Upstream payment dependencies                                                                                                                                                                                        | Integration limitations                                                                                                                                                   |
+| ------------------------------------------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Node](https://github.com/inflowpayai/inflow-node)     | Node 22 or newer; CI tests 22 and 24         | [MPP](https://github.com/inflowpayai/inflow-node/blob/main/packages/mpp/package.json): `mppx ^0.8.17`; [x402](https://github.com/inflowpayai/inflow-node/blob/main/packages/x402/package.json): `@x402/core ^2.27.0` | [MPP](https://github.com/inflowpayai/inflow-node/tree/main/docs/mpp) and [x402](https://github.com/inflowpayai/inflow-node/tree/main/docs/x402) integration documentation |
+| [Go](https://github.com/inflowpayai/inflow-go)         | Go 1.26 or newer; CI tests 1.26 and 1.27     | [go.mod](https://github.com/inflowpayai/inflow-go/blob/main/go.mod): `mpp-go v0.2.0`, `x402/go/v2 v2.27.0`                                                                                                           | [Upstream compatibility notes](https://github.com/inflowpayai/inflow-go#upstream-compatibility-notes)                                                                     |
+| [Python](https://github.com/inflowpayai/inflow-python) | Python 3.11 or newer; CI tests 3.11–3.14     | [pyproject.toml](https://github.com/inflowpayai/inflow-python/blob/main/pyproject.toml): `pympp >=0.11.0,<0.12`, `x402 >=2.25.0,<3`; optional extras                                                                 | [Upstream MPP compatibility](https://github.com/inflowpayai/inflow-python#upstream-mpp-compatibility)                                                                     |
+| [Rust](https://github.com/inflowpayai/inflow-rust)     | Rust 1.93 or newer; CI tests 1.93 and stable | [Cargo.toml](https://github.com/inflowpayai/inflow-rust/blob/main/Cargo.toml): `mpp ~0.14.0`, `x402-* ~2.0.2`; optional features                                                                                     | [MPP compatibility notes](https://github.com/inflowpayai/inflow-rust/blob/main/crates/inflow-mpp/README.md#differences-from-upstream-mpp-014)                             |
+
+Go requirements select minimum module versions; an application's dependency graph can select newer
+versions. Node peer dependencies and Python and Rust manifests define allowed ranges. Lockfiles
+record a tested dependency set, not a restriction on every consuming application's dependency
+resolution.
+
+Dependency updates require review and verification against the SDK's pinned contract and native
+tests. Node also tests the latest x402 2.x dependencies. The
+[interoperability and published-package reports](interop/README.md) identify the exact combinations
+exercised; they do not certify real fund transfers.
+
+Report ordinary integration problems in the relevant SDK's issue tracker. Report security concerns
+privately through the
+[organization security policy](https://github.com/inflowpayai/.github/blob/main/SECURITY.md).
+
 ## Local checks
 
 Use Node.js 24 and the pnpm version declared in `package.json`:
