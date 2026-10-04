@@ -12,11 +12,12 @@ observation format. It must not implement payment selection, signing, polling, c
 settlement on behalf of the SDK. Review the adapter's calls as well as its test results: a passing
 report cannot prove that an adapter actually used the SDK.
 
-The [MPP corpus](../contracts/mpp.md) supplies payment cases; SDK adapters are not implemented in
-this repository. The local HTTP platform supports scripted exchanges, including shared runtime
-fixtures. Use only synthetic credentials and local services. The runner is not a network sandbox: it
-executes the supplied program with the caller's environment and working directory. Run trusted
-adapters without production credentials.
+The [MPP corpus](../contracts/mpp.md) supplies payment cases and the
+[TAP corpus](../contracts/tap.md#shared-adapter-operation) supplies request-verification cases; SDK
+adapters are not implemented in this repository. The local HTTP platform supports scripted
+exchanges, including shared runtime fixtures. Use only synthetic credentials and local services. The
+runner is not a network sandbox: it executes the supplied program with the caller's environment and
+working directory. Run trusted adapters without production credentials.
 
 ## Run
 

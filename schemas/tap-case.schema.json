@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:inflow:conformance:tap-case",
+  "type": "object",
+  "allOf": [
+    { "$ref": "urn:inflow:conformance:case-index#/properties/cases/items" },
+    {
+      "if": {
+        "properties": {
+          "input": {
+            "type": "object",
+            "properties": { "resolver": { "const": "http" } },
+            "required": ["resolver"]
+          }
+        }
+      },
+      "then": {
+        "required": ["platform"],
+        "properties": { "platform": { "$ref": "urn:inflow:conformance:platform" } }
+      },
+      "else": { "properties": { "platform": false } }
+    }
+  ],
+  "properties": {
+    "suite": { "const": "tap-seller" },
+    "operation": { "const": "tap.seller.verify" },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "steps"],
+      "properties": {
+        "key": {
+          "type": "object",
+          "required": ["kty", "crv", "x", "kid", "alg"],
+          "properties": {
+            "kty": { "const": "OKP" },
+            "crv": { "const": "Ed25519" },
+            "x": { "type": "string" },
+            "kid": { "type": "string" },
+            "alg": { "enum": ["ed25519", "Ed25519"] },
+            "use": { "const": "sig" }
+          },
+          "additionalProperties": false
+        },
+        "resolver": { "const": "http" },
+        "resolver_failure": { "type": "boolean" },
+        "store_failure": { "type": "boolean" },
+        "resolver_completion_ms": { "type": "integer", "minimum": 0 },
+        "cache_ttl_ms": { "type": "integer", "minimum": 0 },
+        "cache_max_age_ms": { "type": "integer", "minimum": 0 },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "required": ["now_ms", "requests"],
+            "additionalProperties": false,
+            "properties": {
+              "now_ms": { "type": "integer", "minimum": 0 },
+              "requests": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 10,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["method", "url", "headers"],
+                  "properties": {
+                    "method": { "type": "string" },
+                    "url": { "type": "string" },
+                    "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+                    "body_base64": {
+                      "type": "string",
+                      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "required": ["result"],
+      "properties": {
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["steps", "handler_calls", "claim_calls"],
+          "properties": {
+            "handler_calls": { "type": "integer", "minimum": 0 },
+            "claim_calls": { "type": "integer", "minimum": 0 },
+            "steps": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["accepted", "rejected"],
+                "properties": {
+                  "accepted": { "type": "array", "items": { "$ref": "#/$defs/facts" } },
+                  "rejected": {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "SIGNATURE_INPUT_INVALID",
+                        "CONTENT_DIGEST_INVALID",
+                        "SIGNATURE_LIFETIME_INVALID",
+                        "SIGNATURE_NOT_YET_VALID",
+                        "SIGNATURE_EXPIRED",
+                        "KEY_NOT_FOUND",
+                        "KEY_RETRIEVAL_FAILED",
+                        "SIGNATURE_INVALID",
+                        "NONCE_REPLAYED",
+                        "CUSTOM_RESOLVER_FAILED",
+                        "CUSTOM_STORE_FAILED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verified",
+        "keyid",
+        "algorithm",
+        "intent",
+        "nonce",
+        "created",
+        "expires",
+        "coveredComponents"
+      ],
+      "properties": {
+        "verified": { "const": true },
+        "keyid": { "type": "string" },
+        "algorithm": { "const": "ed25519" },
+        "intent": { "enum": ["browse", "pay"] },
+        "nonce": { "type": "string" },
+        "created": { "type": "integer" },
+        "expires": { "type": "integer" },
+        "coveredComponents": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
