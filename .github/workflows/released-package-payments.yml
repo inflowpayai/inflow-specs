@@ -1,0 +1,80 @@
+name: Released-package payment checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: released-package-payments-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: specs
+          persist-credentials: false
+      - name: Read SDK revisions
+        id: pins
+        run: |
+          for language in node go python rust; do
+            revision=$(jq -er --arg language "$language" '.[$language] | select(test("^[0-9a-f]{40}$"))' specs/interop/sdk-lock.json)
+            echo "$language=$revision" >> "$GITHUB_OUTPUT"
+          done
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-node
+          ref: ${{ steps.pins.outputs.node }}
+          path: sdks/inflow-node
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-go
+          ref: ${{ steps.pins.outputs.go }}
+          path: sdks/inflow-go
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-python
+          ref: ${{ steps.pins.outputs.python }}
+          path: sdks/inflow-python
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-rust
+          ref: ${{ steps.pins.outputs.rust }}
+          path: sdks/inflow-rust
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.1"
+          cache-dependency-path: sdks/inflow-go/go.sum
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.11.8"
+      - name: Install Rust
+        working-directory: sdks/inflow-rust
+        run: rustup toolchain install 1.93.0 --profile minimal
+      - name: Run installed-package payment flows
+        working-directory: specs
+        run: node interop/releases.mjs ../sdks "$RUNNER_TEMP/released-package-payments"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: released-package-payments
+          path: |
+            ${{ runner.temp }}/released-package-payments/*.json
+            ${{ runner.temp }}/released-package-payments/*.txt
+          if-no-files-found: warn
+          retention-days: 30

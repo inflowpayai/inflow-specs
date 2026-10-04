@@ -88,3 +88,39 @@ node interop/x402.mjs /path/to/sdk-parent /path/to/another-new-report-directory
 The report directory must not already exist. The runner compiles the Go and Rust peers, limits peer
 execution time, and shuts down its child processes after each case. Unit tests of the report checker
 are tooling tests; only running this matrix exercises the four SDKs together.
+
+## Published-package payment checks
+
+The manual **Released-package payment checks** workflow installs the exact versions in
+`releases.json` from npm, the Go module proxy, PyPI, and crates.io into separate consumer projects.
+For each language it runs a successful and a verification-rejected payment through MPP and x402
+balance routes: 16 cases, not another cross-language matrix.
+
+Release workflows already check package contents, imports, and selected public APIs. This check adds
+the complete local challenge, payment, verification, settlement, receipt, and protected-response
+exchange using the installed packages. It requires no sandbox deployment, account, wallet, funds, or
+real credentials. The platform responses are synthetic; deployed-platform behavior and actual
+signing and settlement are not certified.
+
+The peer programs are copied from the revisions in `sdk-lock.json`; SDK implementations are not
+copied or linked from those checkouts. Node's peer uses directory links within its npm installation
+to retain its expected directory layout. Go has no module replacement, Python runs in an isolated
+virtual environment, and every InFlow Rust dependency must resolve from crates.io at the pinned
+version. The Rust peer's existing test transport redirects SDK requests to the local platform.
+
+Run **Actions → Released-package payment checks → Run workflow** and download the
+`released-package-payments` artifact. It contains `report.json` with all case results and peer logs,
+runtime and package versions, and dependency inventories. A failed installation, build, or payment
+case prevents a passing result. Updating release pins is independent of publishing an SDK.
+
+For a local run, use the same clean pinned SDK checkouts described above; no Node build or Python
+checkout environment is needed. Install Node, npm, Go, uv, and Rust 1.93.0, then run:
+
+```sh
+node interop/releases.mjs /path/to/sdk-parent /path/to/new-consumer-directory
+```
+
+The directory must not exist. Consumers and their dependency lockfiles remain there for inspection.
+`CARGO_TARGET_DIR` may select a reusable compilation cache; Cargo still resolves and verifies the
+registry dependencies. The workflow uploads only the top-level report and dependency inventories,
+not the installed packages or compiled binaries.
