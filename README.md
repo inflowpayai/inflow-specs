@@ -38,8 +38,9 @@ repositories. Passing the repository's tooling checks does not certify an SDK's 
 
 Conformance tools and fixtures are development dependencies. They are not loaded by production SDKs.
 The separate [TAP Seller verification contract](contracts/tap.md) defines the stronger InFlow
-request-signature profile and its acceptance requirements. It does not yet include a shared
-executable TAP corpus or certify the existing SDK implementations.
+request-signature profile and its executable shared corpus. The cases exercise SDK verification,
+replay protection and trusted-key retrieval through public APIs; tooling tests alone do not certify
+an SDK implementation.
 
 Tests must use synthetic credentials and local services; live payments require separate explicit
 authorization.

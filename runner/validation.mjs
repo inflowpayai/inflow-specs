@@ -13,6 +13,7 @@ for (const name of [
   "platform",
   "mpp-case",
   "x402-case",
+  "tap-case",
 ]) {
   ajv.addSchema(
     JSON.parse(await readFile(new URL(`../schemas/${name}.schema.json`, import.meta.url), "utf8")),
@@ -34,6 +35,7 @@ export function selectCases(index, capabilities) {
     if (["mpp-core", "mpp-buyer", "mpp-seller"].includes(item.suite)) validate("mpp-case", item);
     if (["x402-core", "x402-buyer", "x402-seller"].includes(item.suite))
       validate("x402-case", item);
+    if (item.suite === "tap-seller") validate("tap-case", item);
     if (identifiers.has(item.id)) throw new Error(`Duplicate case: ${item.id}`);
     identifiers.add(item.id);
   }

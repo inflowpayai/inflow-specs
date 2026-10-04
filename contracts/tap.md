@@ -54,17 +54,24 @@ labels or multiple signatures is not part of this profile. Reject an input outsi
 shape; never select a signature by trial verification or combine fields from different signatures.
 
 The signature parameters are `created`, `expires`, `keyid`, `alg`, `nonce` and `tag`. All are
-required and appear once; unknown parameters are outside this profile. Times are integer Unix
-seconds. Key identifiers and nonces are nonempty strings. The accepted algorithm spellings are
-`ed25519` and `Ed25519`, both identifying Ed25519, and the accepted tags are `agent-browser-auth`
-and `agent-payer-auth`.
+required; unknown parameters are outside this profile. Times are integer Unix seconds. Key
+identifiers and nonces are nonempty strings. The accepted algorithm spellings are `ed25519` and
+`Ed25519`, both identifying Ed25519, and the accepted tags are `agent-browser-auth` and
+`agent-payer-auth`.
 
 Parse the supported fields as RFC 9421 Structured Fields, including valid whitespace and string
-escaping. Parameter order is chosen by the signer; it is not fixed to the order listed above.
-Preserve that order and the received algorithm spelling when serializing `@signature-params`. Do not
-sort parameters or substitute normalized values before signature verification. The signature label
-is not part of `@signature-params`. Malformed input, duplicate parameters, invalid field types and
-invalid signature encoding must fail verification.
+escaping. Parameter order is chosen by the signer; it is not fixed to the order listed above. Use
+the last value of a repeated parameter, retaining its first position in parameter order, as
+specified by
+[RFC 8941, section 4.2.3.2](https://www.rfc-editor.org/rfc/rfc8941.html#section-4.2.3.2). Apply
+type, time, algorithm and key checks to those effective values, and use those same values to
+serialize `@signature-params`. Earlier occurrences must still be syntactically valid Structured
+Field values. Preserve parameter order and the received algorithm spelling; serialize whitespace,
+integers and escaped strings according to Structured Fields rather than signing the raw received
+substring. The signature label is not part of `@signature-params`. Malformed input, invalid
+effective field types and invalid signature encoding must fail verification. This parameter rule
+does not permit duplicate covered components or select the last of arbitrary repeated HTTP header
+lines.
 
 For a body, require the actual `Content-Type` and `Content-Digest` fields. The profile uses
 `sha-256=:BASE64_DIGEST:` over the exact supplied bytes, including an explicitly empty body. Verify
@@ -170,9 +177,41 @@ failure. Assert that rejection prevents the protected handler from running and t
 signatures do not claim nonces. Shared vectors establish cross-language agreement; language-native
 tests also cover custom implementations and concurrency.
 
-This document defines the contract; it does not provide an executable TAP corpus. The existing
-[Node vectors](https://github.com/inflowpayai/inflow-node/tree/309aab2650dcb06dd652a5076dc176d5c41196d7/docs/tap)
-are starting evidence, not certification of every requirement here. In particular, that reference
-verifier fixes signature-parameter order and requires alignment with the parsing rule above.
-Implementations must report unmet requirements rather than claiming conformance because the existing
-vectors pass.
+## Shared adapter operation
+
+Generate the executable corpus with `node fixtures/tap.mjs`. Select the mandatory `tap-seller`
+suite. The [case schema](../schemas/tap-case.schema.json) defines `tap.seller.verify` inputs and
+observations. These cases verify the SDK through its public verifier, middleware, key resolver and
+replay store; a test-only implementation of any of those behaviors is not conformance evidence.
+
+Each case creates one verifier and replay store, reused across its ordered `steps`. A step sets the
+injected clock to `now_ms`, then verifies its `requests` concurrently and waits for all of them to
+finish. Decode `body_base64` into exact bytes when present, including the empty string. Pass the
+request headers through without pre-parsing signatures or changing their values.
+
+By default, an application-supplied resolver returns the synthetic public `key` for its matching
+identifier and algorithm. `resolver: "http"` instead uses the SDK's built-in resolver pointed at
+`/keys` on the runner's injected `base_url`. The runner checks every actual key request against the
+script, including missing or extra requests. Optional `cache_ttl_ms` and `cache_max_age_ms`
+configure that resolver. The adapter must not fetch, cache, select or refresh these HTTP keys
+itself.
+
+`resolver_completion_ms` advances the clock inside the custom resolver to test a lookup completing
+after expiration. `resolver_failure` and `store_failure` make the corresponding application-supplied
+implementation throw a synthetic error. They must not replace SDK validation or cryptographic
+checks. Wrap the SDK's memory replay store to count claims; call that store for every claim unless
+the explicit store-failure case applies.
+
+Return `steps`, `handler_calls` and `claim_calls`. Each observed step has `accepted` verified-fact
+objects and `rejected` error codes. Record facts from the protected middleware callback, not by
+parsing the fixture. Increment `handler_calls` only inside that callback. Each concurrent batch has
+at most one accepted request in this corpus; sort its rejected codes lexically. Preserve step order.
+Map equivalent SDK failure categories to the table above. Only the two injected failures become
+`CUSTOM_RESOLVER_FAILED` and `CUSTOM_STORE_FAILED`; an unrelated exception fails the adapter. Verify
+that caller-owned input is unchanged on both accepted and rejected paths.
+
+The corpus uses a public synthetic Ed25519 seed and real signatures, with an isolated local HTTP key
+service where required. It does not certify production key registration, browser proxy
+configuration, distributed replay storage, or live payment authorization. The separate
+[Node signing vectors](https://github.com/inflowpayai/inflow-node/tree/309aab2650dcb06dd652a5076dc176d5c41196d7/docs/tap)
+remain useful signing evidence; they do not replace these public-SDK verification cases.
