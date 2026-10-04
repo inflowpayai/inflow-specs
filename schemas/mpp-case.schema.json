@@ -263,7 +263,7 @@
               "minLength": 1
             },
             "method": {
-              "enum": ["inflow", "tempo"]
+              "enum": ["inflow", "tempo", "stripe"]
             },
             "intent": {
               "enum": ["charge", "subscription"]
@@ -300,8 +300,7 @@
             "intent",
             "request",
             "replacement_request",
-            "credential_payload",
-            "source"
+            "credential_payload"
           ],
           "properties": {
             "api_key": {
@@ -309,7 +308,7 @@
               "minLength": 1
             },
             "method": {
-              "enum": ["inflow", "tempo"]
+              "enum": ["inflow", "tempo", "stripe"]
             },
             "intent": {
               "enum": ["charge", "subscription"]

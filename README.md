@@ -32,8 +32,9 @@ process-level tests for the tooling. A [local mock platform](runner/README.md#lo
 and [shared runtime fixtures](contracts/runtime.md) cover synthetic authentication errors and
 approval exchanges. The [MPP corpus](contracts/mpp.md) supplies Core, Buyer, and Seller cases. The
 [x402 corpus](contracts/x402.md) covers payment identifiers, managed signing, facilitator responses,
-and seller offers. Maintained SDK adapters are not implemented yet. Passing the repository's tooling
-checks does not certify an SDK's payment behavior.
+and seller offers. The [Stripe charge corpus](contracts/stripe.md) covers Seller acceptance of
+Shared Payment Tokens separately from the ordinary MPP cases. SDK adapters live in the SDK
+repositories. Passing the repository's tooling checks does not certify an SDK's payment behavior.
 
 Conformance tools and fixtures are development dependencies. They are not loaded by production SDKs.
 Tests must use synthetic credentials and local services; live payments require separate explicit
