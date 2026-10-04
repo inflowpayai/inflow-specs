@@ -3,12 +3,14 @@
 This repository defines shared expectations for InFlow payment SDKs: the API exchanges and payment
 workflows that implementations in different languages must handle consistently.
 
-It is for SDK contributors and maintainers. To integrate payments into an application, start with
-the [InFlow Node SDK](https://github.com/inflowpayai/inflow-node). The
-[Go](https://github.com/inflowpayai/inflow-go),
-[Python](https://github.com/inflowpayai/inflow-python), and
-[Rust](https://github.com/inflowpayai/inflow-rust) SDK repositories are also available; consult each
-repository for its implementation and release status.
+It is for SDK contributors and maintainers. To integrate payments into an application, choose the
+[Go](https://github.com/inflowpayai/inflow-go#readme),
+[Node.js](https://github.com/inflowpayai/inflow-node#readme),
+[Python](https://github.com/inflowpayai/inflow-python#readme), or
+[Rust](https://github.com/inflowpayai/inflow-rust#readme) SDK guide. Each contains installation
+instructions and runnable Buyer and Seller examples. The
+[compatibility and support matrix](#sdk-compatibility-and-support) links to runtime requirements and
+language-specific limitations.
 
 ## Scope
 
