@@ -79,6 +79,27 @@ test("TAP schema rejects ambiguous adapter inputs and unclassified failures", ()
   }
 });
 
+test("raw-query fixtures sign the original spelling, not WHATWG URL serialization", () => {
+  const sample = tapCases.cases.find((item) => item.id === "tap.raw-query-apostrophe");
+  const request = sample.input.steps[0].requests[0];
+  assert.equal(new URL(request.url).search, "?q=O%27Reilly");
+  const parameters = request.headers["signature-input"].slice("sig2=".length);
+  const base = [
+    '"@method": GET',
+    '"@authority": merchant.example',
+    '"@path": /',
+    '"@query": ?q=O\'Reilly',
+    `"@signature-params": ${parameters}`,
+  ].join("\n");
+  const signature = Buffer.from(request.headers.signature.slice(6, -1), "base64");
+  const key = createPublicKey({ key: tapKey, format: "jwk" });
+  assert.ok(verify(null, Buffer.from(base), key, signature));
+  assert.equal(
+    verify(null, Buffer.from(base.replace("O'Reilly", "O%27Reilly")), key, signature),
+    false,
+  );
+});
+
 for (const item of tapCases.cases.filter((item) => item.platform)) {
   test(`TAP key-server script consistency, not SDK verification: ${item.id}`, async () => {
     const platform = await startPlatform(item.platform);
