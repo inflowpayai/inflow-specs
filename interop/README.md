@@ -1,16 +1,17 @@
-# MPP Buyer and Seller interoperability
+# Buyer and Seller interoperability
 
-The manual **MPP interoperability** workflow runs all 16 combinations of Node, Go, Python, and Rust
-Buyers and Sellers. Each pair exchanges real HTTP challenges and credentials through the SDKs and
-their existing upstream integrations. A local synthetic platform supplies approval and settlement
-responses. No account credentials, blockchain transactions, or live payments are used.
+The manual **MPP interoperability** and **x402 interoperability** workflows each run all 16
+combinations of Node, Go, Python, and Rust Buyers and Sellers. Each pair exchanges real HTTP
+challenges and credentials through the SDKs and their existing upstream integrations. A local
+synthetic platform supplies approval and settlement responses. No account credentials, blockchain
+transactions, or live payments are used.
 
 The SDK revisions are pinned in `sdk-lock.json`. The runner uses the SDK repositories' existing peer
 programs, including the Node peer maintained in the Rust repository. It does not implement a
 replacement payment client or Seller. Update pins deliberately and review changes to these peers
 when updating SDK revisions.
 
-## Cases
+## MPP cases
 
 Every pair exercises InFlow balance charges and Tempo charges with:
 
@@ -37,10 +38,33 @@ feature. They supplement—not replace—the shared conformance corpus and langu
 Instrument-rail charges, Stripe, TAP, x402 interoperability, and credentialed sandbox certification
 are outside this matrix.
 
+## x402 cases
+
+Every pair exercises InFlow balance payments and EVM exact payments using the Base configuration
+from the shared x402 fixtures. Each scheme runs five scenarios: ready payment, pending approval,
+rejected verification, rejected settlement, and application handler failure. This produces 160
+normal executions and 16 corrupted-receipt controls, with no unsupported cells.
+
+Assertions check the scheme, network, asset, amount, recipient, resource URL, complete payment
+payload and identifier, separate Buyer and Seller API keys, polling, and receipt identity. The
+protected request must preserve its application session header without leaking a platform API key.
+Successful paid responses must have private caching.
+
+x402 executes the handler after verification but before settlement. A verification rejection must
+not run the handler or settle. A handler error must not settle. A settlement rejection must return
+402 without the paid response body or a successful receipt, even though the handler has already run.
+Each payment must be created once, verified once, and settled at most once in these scenarios.
+
+The platform returns synthetic signed payloads. This matrix does not verify cryptographic signing,
+on-chain transactions, replay protection, external-wallet Buyers, every blockchain, Permit2, metered
+payments, sponsorship, TAP, or live sandbox payments. It tests the SDK and middleware exchange, not
+the platform's ability to accept a real payment.
+
 ## Run and read the report
 
-Run **Actions → MPP interoperability → Run workflow** in this repository. It runs only on manual
-dispatch, not on every pull request or merge. Download the `mpp-interoperability` artifact:
+Run **Actions → MPP interoperability → Run workflow** or **Actions → x402 interoperability → Run
+workflow** in this repository. Both run only on manual dispatch, not on every pull request or merge.
+Download the corresponding `mpp-interoperability` or `x402-interoperability` artifact:
 
 - `report.json`: all 16 cells, individual cases, SDK revisions, runtime versions, and overall
   result.
@@ -58,6 +82,7 @@ Then, from this repository:
 
 ```sh
 node interop/mpp.mjs /path/to/sdk-parent /path/to/new-report-directory
+node interop/x402.mjs /path/to/sdk-parent /path/to/another-new-report-directory
 ```
 
 The report directory must not already exist. The runner compiles the Go and Rust peers, limits peer

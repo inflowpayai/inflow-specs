@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { caseList, checkResult, languages, startPeer } from "../interop/mpp.mjs";
+import { caseList, checkResult } from "../interop/mpp.mjs";
+import { languages, startPeer } from "../interop/matrix.mjs";
 
 const id = "22222222-2222-4222-8222-222222222222";
 const testCase = { buyer: "node", seller: "go", variant: "charge", scenario: "ready" };

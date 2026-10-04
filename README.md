@@ -37,11 +37,12 @@ Shared Payment Tokens separately from the ordinary MPP cases. SDK adapters live 
 repositories. Passing the repository's tooling checks does not certify an SDK's payment behavior.
 
 Conformance tools and fixtures are development dependencies. They are not loaded by production SDKs.
-The manual [MPP interoperability matrix](interop/README.md) exercises all four languages' Buyers
-against all four Sellers and retains per-case service logs and dependency versions. The separate
-[TAP Seller verification contract](contracts/tap.md) defines the stronger InFlow request-signature
-profile and its executable shared corpus. The cases exercise SDK verification, replay protection and
-trusted-key retrieval through public APIs; tooling tests alone do not certify an SDK implementation.
+The manual [MPP and x402 interoperability matrices](interop/README.md) exercise all four languages'
+Buyers against all four Sellers and retain per-case service logs and dependency versions. The
+separate [TAP Seller verification contract](contracts/tap.md) defines the stronger InFlow
+request-signature profile and its executable shared corpus. The cases exercise SDK verification,
+replay protection and trusted-key retrieval through public APIs; tooling tests alone do not certify
+an SDK implementation.
 
 Tests must use synthetic credentials and local services; live payments require separate explicit
 authorization.
