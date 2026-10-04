@@ -39,7 +39,7 @@ function signed(options = {}) {
     "@method": request.method,
     "@authority": url.host,
     "@path": url.pathname,
-    "@query": url.search || "?",
+    "@query": request.url.match(/\?[^#]*/)?.[0] ?? "?",
   };
   if (request.body_base64 !== undefined) {
     request.headers["content-type"] = "application/json";
@@ -106,6 +106,30 @@ const signatureWhitespace = structuredClone(baseline);
 signatureWhitespace.request.headers.signature = `  ${signatureWhitespace.request.headers.signature.replace(/=+:$/, ":")} \t`;
 add("signature-whitespace-padding", signatureWhitespace);
 add("no-query", signed({ request: { url: "https://merchant.example/" } }));
+add("empty-query", signed({ request: { url: "https://merchant.example/?" } }));
+for (const [id, query, changedQuery] of [
+  ["apostrophe", "?q=O'Reilly", "?q=O%27Reilly"],
+  ["encoded-apostrophe", "?q=O%27Reilly", "?q=O'Reilly"],
+  ["encoded-delimiters", "?q=%23%3F&kind=a&kind=b", "?q=%23%3F&kind=b&kind=a"],
+]) {
+  const sample = signed({ request: { url: `https://merchant.example/${query}` } });
+  add(`raw-query-${id}`, sample);
+  const tampered = structuredClone(sample.request);
+  tampered.url = `https://merchant.example/${changedQuery}`;
+  add(`raw-query-${id}-tampered`, sample, {
+    input: {
+      steps: [
+        { now_ms: created * 1000, requests: [tampered] },
+        { now_ms: created * 1000, requests: [sample.request] },
+      ],
+    },
+    result: {
+      steps: [rejected("SIGNATURE_INVALID"), success(sample.facts)],
+      handler_calls: 1,
+      claim_calls: 1,
+    },
+  });
+}
 for (const body of ["", '{"message":"hello"}', "\u0000\u00ff"]) {
   const body_base64 = Buffer.from(body).toString("base64");
   add(
