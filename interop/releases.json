@@ -1,0 +1,13 @@
+{
+  "node": {
+    "@inflowpayai/mpp": "0.10.1",
+    "@inflowpayai/mpp-buyer": "0.7.3",
+    "@inflowpayai/mpp-seller": "0.8.3",
+    "@inflowpayai/x402": "0.10.0",
+    "@inflowpayai/x402-buyer": "0.10.0",
+    "@inflowpayai/x402-seller": "0.8.0"
+  },
+  "go": "v0.2.0",
+  "python": "0.2.0",
+  "rust": "0.2.0"
+}

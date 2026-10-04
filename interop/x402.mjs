@@ -59,7 +59,7 @@ export function checkResult(test, result, events, network) {
   }
 }
 
-async function runCase(test, commands, signal, corruptReceipt = false) {
+export async function runCase(test, commands, signal, corruptReceipt = false) {
   const events = [],
     errors = [];
   const evidence = { ...test, events, passed: false };
