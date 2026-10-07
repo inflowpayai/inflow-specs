@@ -95,6 +95,14 @@ creation returns and includes both polling delays and polling HTTP requests. It 
 transport's per-request timeout. A credential received after that budget expires must not be
 returned as a successful result.
 
+For the `inflow` instrument rail, `context.instrumentId` selects the Buyer's card. Omitting it
+leaves selection of the primary card to the platform; it does not authorize the SDK to choose a card
+from the challenge. The primary-card fixture assumes that the Buyer's primary card satisfies the
+challenge's instrument restriction. Preserve the challenge unchanged and send the selection in
+payment options. A rejected selection must not trigger a second purchase with another card.
+Instrument credentials carry payload type `instrument`, while balance credentials carry `balance`.
+Card ownership, eligibility, and any challenge restriction are enforced by the platform.
+
 The `mpp.buyer.timeout` case allows one second, shorter than the pending response's 60-second
 polling advice; the SDK must stop waiting and cancel the approval without another poll. The wait
 must recheck its target time after an early timer wake rather than poll before the advised delay or

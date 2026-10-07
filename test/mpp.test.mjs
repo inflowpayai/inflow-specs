@@ -7,6 +7,24 @@ import { selectCases, validate } from "../runner/validation.mjs";
 import { startPlatform } from "../runner/platform.mjs";
 
 const decode = (value) => JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+test("Instrument Buyer fixtures preserve primary selection and reject replacement purchases", () => {
+  for (const name of [
+    "instrument-primary",
+    "instrument-rejected-no-fallback",
+    "ready-instrument",
+  ]) {
+    const item = mppCases.cases.find((entry) => entry.id === `mpp.buyer.${name}`);
+    assert.equal(item.platform.exchanges.length, 1);
+    const body = item.platform.exchanges[0].request.json;
+    assert.deepEqual(body.options, item.input.context);
+    assert.deepEqual(body.challenge, item.input.challenge);
+    if (name === "instrument-primary") assert.deepEqual(body.options, {});
+    else assert.ok(body.options.instrumentId);
+    if (item.expect.result) assert.equal(item.expect.result.payload.type, "instrument");
+    else assert.equal(item.expect.error.code, "payment-failed");
+  }
+});
+
 test("MPP corpus exports a deterministic case index for the runner", () => {
   const output = execFileSync(
     process.execPath,
