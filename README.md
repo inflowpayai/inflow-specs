@@ -38,6 +38,9 @@ and seller offers. The [Stripe charge corpus](contracts/stripe.md) covers Seller
 Shared Payment Tokens separately from the ordinary MPP cases. SDK adapters live in the SDK
 repositories. Passing the repository's tooling checks does not certify an SDK's payment behavior.
 
+The [payment-status corpus](contracts/payment-status.md) checks read-only Buyer recovery for MPP and
+x402, including card-authentication actions and rechecking the original payment.
+
 Conformance tools and fixtures are development dependencies. They are not loaded by production SDKs.
 The manual [MPP and x402 interoperability matrices](interop/README.md) exercise all four languages'
 Buyers against all four Sellers and retain per-case service logs and dependency versions. The
