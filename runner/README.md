@@ -15,10 +15,12 @@ report cannot prove that an adapter actually used the SDK.
 The [MPP corpus](../contracts/mpp.md) supplies payment cases and the
 [TAP corpus](../contracts/tap.md#shared-adapter-operation) supplies request-verification cases; SDK
 adapters are not implemented in this repository. The separate [CARD corpus](../contracts/card.md)
-checks Buyer fulfilment, Seller offers, and verification. The local HTTP platform supports scripted
-exchanges, including shared runtime fixtures. Use only synthetic credentials and local services. The
-runner is not a network sandbox: it executes the supplied program with the caller's environment and
-working directory. Run trusted adapters without production credentials.
+checks Buyer fulfilment, Seller offers, and verification. The
+[payment-status corpus](../contracts/payment-status.md) checks read-only recovery through both Buyer
+clients. The local HTTP platform supports scripted exchanges, including shared runtime fixtures. Use
+only synthetic credentials and local services. The runner is not a network sandbox: it executes the
+supplied program with the caller's environment and working directory. Run trusted adapters without
+production credentials.
 
 ## Run
 

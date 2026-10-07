@@ -17,6 +17,19 @@
   "oneOf": [
     {
       "properties": {
+        "suite": { "const": "mpp-buyer" },
+        "operation": { "const": "mpp.buyer.payment-status" },
+        "input": { "$ref": "urn:inflow:conformance:common#/$defs/payment-status-input" },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": { "$ref": "urn:inflow:conformance:common#/$defs/payment-status-result" }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
         "suite": {
           "const": "mpp-core"
         },

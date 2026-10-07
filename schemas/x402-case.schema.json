@@ -9,6 +9,21 @@
   ],
   "oneOf": [
     {
+      "required": ["platform"],
+      "properties": {
+        "suite": { "const": "x402-buyer" },
+        "operation": { "const": "x402.buyer.payment-status" },
+        "input": { "$ref": "urn:inflow:conformance:common#/$defs/payment-status-input" },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "result": { "$ref": "urn:inflow:conformance:common#/$defs/payment-status-result" }
+          }
+        },
+        "platform": { "$ref": "urn:inflow:conformance:platform" }
+      }
+    },
+    {
       "properties": {
         "suite": {
           "const": "x402-core"
