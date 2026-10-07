@@ -435,6 +435,164 @@ lifecycle("idempotency-disabled", "verify", { credential }, { result: receipt },
   broadcastExchange(credential, { receipt }, null),
 ]);
 
+const buyerKey = "test-only-buyer-key";
+const transactionId = "22222222-2222-4222-8222-222222222222";
+const approvalId = "33333333-3333-4333-8333-333333333333";
+const buyerChallenge = {
+  ...credential.challenge,
+  expires: "2099-01-01T00:00:00Z",
+  description: "Test purchase",
+  digest: "sha-256=test-only-binding",
+  opaque: encode({ item: "test-report" }),
+};
+const buyerCredential = { ...credential, challenge: buyerChallenge, source: "did:example:buyer" };
+const context = {
+  merchant: { name: "Test Seller", url: "https://seller.example", countryCode: "US" },
+};
+const buyerInput = (options = context) => ({
+  api_key: buyerKey,
+  challenge: buyerChallenge,
+  context: options,
+});
+const buyerExchange = (method, path, response, json) => ({
+  request: {
+    method,
+    path,
+    headers: { "x-api-key": buyerKey },
+    ...(json === undefined ? {} : { json }),
+  },
+  response: { status: 200, json: response },
+});
+const ready = (value = buyerCredential) => ({
+  state: "ready",
+  transactionId,
+  credential: encode(value),
+});
+const create = (response, options = context) =>
+  buyerExchange("POST", "/v1/transactions/mpp", response, { challenge: buyerChallenge, options });
+const poll = (response) => buyerExchange("GET", `/v1/transactions/${transactionId}/mpp`, response);
+const buyerCase = (id, input, expect, exchanges) =>
+  cases.push(
+    structuredClone({
+      id: `mpp.card.buyer-${id}`,
+      suite: "mpp-buyer",
+      operation: "mpp.buyer.fulfil",
+      input,
+      expect,
+      platform: { exchanges },
+    }),
+  );
+const buyerFailure = (code, message, details) => ({
+  error: { code, message, ...(details ? { details } : {}) },
+});
+buyerCase("primary", buyerInput(), { result: buyerCredential }, [create(ready())]);
+const selected = { ...context, instrumentId: "55555555-5555-4555-8555-555555555555" };
+buyerCase("selected", buyerInput(selected), { result: buyerCredential }, [
+  create(ready(), selected),
+]);
+buyerCase("pending-ready", buyerInput(), { result: buyerCredential }, [
+  create({ state: "pending", transactionId, approvalId, retryAfterSeconds: 0 }),
+  poll(ready()),
+]);
+for (const [id, options] of Object.entries({
+  "missing-merchant": {},
+  "blank-name": { merchant: { ...context.merchant, name: " " } },
+  "invalid-url": { merchant: { ...context.merchant, url: "/relative" } },
+  "invalid-country": { merchant: { ...context.merchant, countryCode: "USA" } },
+  "invalid-instrument": { ...context, instrumentId: "not-a-uuid" },
+}))
+  buyerCase(id, buyerInput(options), failure("invalid-input"), []);
+for (const [id, mutate] of Object.entries({
+  id: (value) => {
+    value.challenge.id = "other";
+  },
+  realm: (value) => {
+    value.challenge.realm = "other.example";
+  },
+  method: (value) => {
+    value.challenge.method = "inflow";
+  },
+  intent: (value) => {
+    value.challenge.intent = "subscription";
+  },
+  description: (value) => {
+    value.challenge.description = "Other purchase";
+  },
+  digest: (value) => {
+    value.challenge.digest = "sha-256=other-binding";
+  },
+  amount: (value) => {
+    value.challenge.request = encode(prepared("200"));
+  },
+  recipient: (value) => {
+    value.challenge.request = encode(prepared("125", { recipient: "acct_other" }));
+  },
+  key: (value) => {
+    value.challenge.request = encode(
+      prepared("125", {
+        methodDetails: { ...methodDetails, encryptionJwk: { ...encryptionJwk, kid: "other" } },
+      }),
+    );
+  },
+  opaque: (value) => {
+    value.challenge.opaque = encode({ item: "other" });
+  },
+  expiry: (value) => {
+    value.challenge.expires = "2098-01-01T00:00:00Z";
+  },
+  payload: (value) => {
+    value.payload.encryptedPayload = "";
+  },
+  network: (value) => {
+    value.payload.network = "mastercard";
+  },
+})) {
+  const value = structuredClone(buyerCredential);
+  mutate(value);
+  buyerCase(
+    `mismatch-${id}`,
+    buyerInput(),
+    buyerFailure("invalid-credential", "Invalid credential."),
+    [create(ready(value))],
+  );
+}
+buyerCase(
+  "ready-missing-credential",
+  buyerInput(),
+  buyerFailure("invalid-credential", "Invalid credential."),
+  [create({ state: "ready", transactionId })],
+);
+const failed = { state: "failed", transactionId, problem };
+buyerCase(
+  "failed",
+  buyerInput(),
+  buyerFailure("payment-failed", "Payment failed.", { problem, transaction_id: transactionId }),
+  [create(failed)],
+);
+buyerCase(
+  "expired",
+  buyerInput(),
+  buyerFailure("payment-expired", "Payment expired.", { transaction_id: transactionId }),
+  [create({ state: "expired", transactionId })],
+);
+buyerCase(
+  "pending-failed",
+  buyerInput(),
+  buyerFailure("payment-failed", "Payment failed.", { problem, transaction_id: transactionId }),
+  [
+    create({ state: "pending", transactionId, approvalId, retryAfterSeconds: 0 }),
+    poll(failed),
+    {
+      request: {
+        method: "POST",
+        path: `/v1/approvals/${approvalId}/cancel`,
+        headers: { "x-api-key": buyerKey },
+      },
+      response: { status: 204 },
+    },
+  ],
+);
+
 export const cardCases = { cases };
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
   process.stdout.write(`${JSON.stringify(cardCases, null, 2)}\n`);
