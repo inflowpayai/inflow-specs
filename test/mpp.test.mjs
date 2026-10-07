@@ -7,6 +7,18 @@ import { selectCases, validate } from "../runner/validation.mjs";
 import { startPlatform } from "../runner/platform.mjs";
 
 const decode = (value) => JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+test("Buyer failure expectations preserve transaction identifiers supplied by the platform", () => {
+  for (const item of mppCases.cases.filter((entry) => entry.suite === "mpp-buyer")) {
+    const failed = item.platform.exchanges.find(
+      ({ response }) => response.json?.state === "failed",
+    );
+    if (!failed) continue;
+    assert.equal(item.expect.error.code, "payment-failed");
+    assert.deepEqual(item.expect.error.details.problem, failed.response.json.problem);
+    assert.equal(item.expect.error.details.transaction_id, failed.response.json.transactionId);
+  }
+});
+
 test("Instrument Buyer fixtures preserve primary selection and reject replacement purchases", () => {
   for (const name of [
     "instrument-primary",

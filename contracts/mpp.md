@@ -259,11 +259,11 @@ must fail the adapter.
 
 Preserve returned platform problems exactly as `error.details.problem`, including their nested
 `extensions` object. This is the InFlow API problem representation, not the flattened problem body
-rendered by a protected resource's HTTP middleware. Expiry and timeout observations preserve the
-transaction identifier as `error.details.transaction_id`. Cancellation cases compare the
-classification and the actual approval-cancellation HTTP request, rather than requiring an approval
-identifier in every language's native cancellation exception. Omit `details` when the operation does
-not define it.
+rendered by a protected resource's HTTP middleware. Buyer failure, expiry, and timeout observations
+preserve a supplied transaction identifier as `error.details.transaction_id`; do not manufacture one
+when the failure contains none. Cancellation cases compare the classification and the actual
+approval-cancellation HTTP request, rather than requiring an approval identifier in every language's
+native cancellation exception. Omit `details` when the operation does not define it.
 
 Malformed Seller-response cases set `include_problem: false`: they check rejection and absence of
 unsafe follow-up calls without standardizing the wording of a locally synthesized problem. This is

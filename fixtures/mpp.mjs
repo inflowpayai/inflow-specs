@@ -393,7 +393,11 @@ function buildCases(signedChallenges = {}) {
     [authorize({ problem })],
   );
   for (const [name, response, expected] of [
-    ["failed", { state: "failed", transactionId, problem }, failure("payment-failed", { problem })],
+    [
+      "failed",
+      { state: "failed", transactionId, problem },
+      failure("payment-failed", { problem, transaction_id: transactionId }),
+    ],
     [
       "expired",
       { state: "expired", transactionId },
