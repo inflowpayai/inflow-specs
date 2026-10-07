@@ -207,6 +207,234 @@ for (const [id, mutate] of [
   add(`unavailable-${id}`, { amount: "1" }, failure("unsupported-capability"), value);
 }
 
+const sorted = (value) =>
+  Array.isArray(value)
+    ? value.map(sorted)
+    : value !== null && typeof value === "object"
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((key) => [key, sorted(value[key])]),
+        )
+      : value;
+const encode = (value) => Buffer.from(JSON.stringify(sorted(value))).toString("base64url");
+const payload = {
+  encryptedPayload: "test-only-opaque-credential",
+  network: "visa",
+  panLastFour: "4242",
+  panExpirationMonth: "06",
+  panExpirationYear: "2030",
+  billingAddress: { zip: "94102", countryCode: "US" },
+  extension: "preserved",
+};
+const credential = {
+  challenge: {
+    id: "test-card",
+    realm: "seller.example",
+    method: "card",
+    intent: "charge",
+    request: encode(prepared("125")),
+  },
+  payload,
+  source: "",
+};
+const validation = (value) => ({
+  success: true,
+  challenge: value.challenge,
+  credential: value,
+  details: {},
+  method: "card",
+  intent: "charge",
+  request: JSON.parse(Buffer.from(value.challenge.request, "base64url").toString()),
+  source: value.source,
+});
+const receipt = {
+  method: "card",
+  reference: "test-authorization",
+  status: "success",
+  timestamp: "2026-10-07T12:00:00Z",
+  challengeId: "test-card",
+  settlement: { amount: "1.25", currency: "USD" },
+};
+const getConfig = (value = config) => ({
+  request: {
+    method: "GET",
+    path: "/v1/mpp/config",
+    headers: { "x-api-key": "test-only-seller-key" },
+  },
+  response: { status: 200, json: value },
+});
+const exchange = (path, value, response, headers = {}) => ({
+  request: {
+    method: "POST",
+    path: `/v1/mpp/${path}`,
+    headers: { "x-api-key": "test-only-seller-key", ...headers },
+    json: { credential: value },
+  },
+  response: { status: 200, json: response },
+});
+const validateExchange = (value = credential, result = validation(value)) =>
+  exchange("validate", value, result);
+const broadcastExchange = (
+  value = credential,
+  result = { receipt },
+  key = { capture: "broadcast-key" },
+) => exchange("broadcast", value, result, { "idempotency-key": key });
+const lifecycle = (id, operation, input, expect, exchanges) =>
+  cases.push(
+    structuredClone({
+      id: `mpp.card.${id}`,
+      suite: "mpp-seller",
+      operation: `mpp.seller.${operation}`,
+      input: { api_key: "test-only-seller-key", ...input },
+      expect,
+      platform: { exchanges },
+    }),
+  );
+const rejected = (problem) => ({
+  error: {
+    code: "payment-failed",
+    message: "Payment failed.",
+    ...(problem ? { details: { problem } } : {}),
+  },
+});
+lifecycle("validate-only", "validate", { credential }, { result: validation(credential) }, [
+  getConfig(),
+  validateExchange(),
+]);
+lifecycle("verify", "verify", { credential }, { result: receipt }, [
+  getConfig(),
+  validateExchange(),
+  broadcastExchange(),
+]);
+const referenced = {
+  ...credential,
+  challenge: {
+    ...credential.challenge,
+    request: encode(prepared("125", { externalId: "order-test" })),
+    description: "Test purchase",
+    expires: "2030-01-01T00:00:00Z",
+  },
+};
+const referencedReceipt = { ...receipt, externalId: "order-test" };
+lifecycle("verify-reference", "verify", { credential: referenced }, { result: referencedReceipt }, [
+  getConfig(),
+  validateExchange(referenced),
+  broadcastExchange(referenced, { receipt: referencedReceipt }),
+]);
+const identified = { ...credential, source: "did:example:buyer" };
+lifecycle("verify-source", "verify", { credential: identified }, { result: receipt }, [
+  getConfig(),
+  validateExchange(identified),
+  broadcastExchange(identified),
+]);
+const anonymous = structuredClone(credential);
+delete anonymous.source;
+lifecycle("verify-omitted-source", "verify", { credential: anonymous }, { result: receipt }, [
+  getConfig(),
+  validateExchange(),
+  broadcastExchange(),
+]);
+
+for (const [id, change] of Object.entries({
+  amount: { amount: "2" },
+  reference: { externalId: "other" },
+  billing: { billingRequired: false },
+})) {
+  const request = { amount: "1.25", externalId: "order-test", billingRequired: true };
+  lifecycle(
+    `route-${id}`,
+    "route-binding",
+    {
+      method: "card",
+      intent: "charge",
+      request,
+      replacement_request: { ...request, ...change },
+      credential_payload: payload,
+    },
+    { result: { status: 402 } },
+    [getConfig()],
+  );
+}
+const problem = {
+  type: "https://paymentauth.org/problems/verification-failed",
+  title: "Payment Verification Failed",
+  status: 402,
+  detail: "Synthetic CARD rejection.",
+};
+lifecycle("validation-rejected", "verify", { credential }, rejected(problem), [
+  getConfig(),
+  validateExchange(credential, { success: false, problem }),
+]);
+for (const [id, mutate] of Object.entries({
+  challenge: (value) => {
+    value.challenge.id = "other";
+  },
+  payload: (value) => {
+    value.credential.payload.encryptedPayload = "other";
+  },
+  source: (value) => {
+    value.source = "did:example:other";
+  },
+  method: (value) => {
+    value.method = "stripe";
+  },
+  intent: (value) => {
+    value.intent = "subscription";
+  },
+})) {
+  const response = structuredClone(validation(credential));
+  mutate(response);
+  lifecycle(
+    `validation-inconsistent-${id}`,
+    "verify",
+    { credential, include_problem: false },
+    rejected(),
+    [getConfig(), validateExchange(credential, response)],
+  );
+}
+for (const [id, value] of Object.entries({
+  rejected: problem,
+  pending: {
+    type: "https://paymentauth.org/problems/settlement-unavailable",
+    title: "Settlement Pending",
+    status: 503,
+    detail: "Synthetic payment is pending.",
+  },
+}))
+  lifecycle(`broadcast-${id}`, "verify", { credential }, rejected(value), [
+    getConfig(),
+    validateExchange(),
+    broadcastExchange(credential, { problem: value }),
+  ]);
+for (const [id, result] of Object.entries({
+  missing: {},
+  failed: { receipt: { ...receipt, status: "failed" } },
+  method: { receipt: { ...receipt, method: "stripe" } },
+  challenge: { receipt: { ...receipt, challengeId: "other" } },
+  "missing-challenge": {
+    receipt: Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== "challengeId")),
+  },
+}))
+  lifecycle(`receipt-${id}`, "verify", { credential, include_problem: false }, rejected(), [
+    getConfig(),
+    validateExchange(),
+    broadcastExchange(credential, result),
+  ]);
+const retry = broadcastExchange();
+retry.response = { status: 503, headers: { "retry-after": "0" } };
+lifecycle("idempotency-retry", "verify", { credential }, { result: receipt }, [
+  getConfig(),
+  validateExchange(),
+  retry,
+  broadcastExchange(credential, { receipt }, { same: "broadcast-key" }),
+]);
+lifecycle("idempotency-disabled", "verify", { credential }, { result: receipt }, [
+  getConfig({ ...config, featureFlags: { idempotencyKeyEnabled: false } }),
+  validateExchange(),
+  broadcastExchange(credential, { receipt }, null),
+]);
+
 export const cardCases = { cases };
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
   process.stdout.write(`${JSON.stringify(cardCases, null, 2)}\n`);

@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { cardCases } from "../fixtures/card.mjs";
 import { selectCases, validate } from "../runner/validation.mjs";
 
-test("CARD offer cases are deterministic mandatory Seller operations", () => {
+test("CARD cases are deterministic mandatory Seller operations", () => {
   const output = execFileSync(
     process.execPath,
     [fileURLToPath(new URL("../fixtures/card.mjs", import.meta.url))],
@@ -22,14 +22,17 @@ test("CARD offer cases are deterministic mandatory Seller operations", () => {
   assert.ok(selected.every(({ omission }) => omission === null));
   for (const item of cardCases.cases) {
     validate("mpp-case", item);
-    assert.equal(item.platform.exchanges.length, 1);
+    if (["mpp.seller.prepare", "mpp.seller.route-binding"].includes(item.operation))
+      assert.equal(item.platform.exchanges.length, 1);
     assert.equal(item.platform.exchanges[0].request.path, "/v1/mpp/config");
     assert.equal(item.platform.exchanges[0].request.method, "GET");
   }
 });
 
 test("CARD expectations preserve cents and configuration authority", () => {
-  for (const item of cardCases.cases.filter((entry) => entry.expect.result)) {
+  for (const item of cardCases.cases.filter(
+    (entry) => entry.operation === "mpp.seller.prepare" && entry.expect.result,
+  )) {
     const result = item.expect.result;
     const [whole, fraction = ""] = item.input.request.amount.split(".");
     assert.equal(BigInt(result.amount), BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0")));
@@ -43,5 +46,25 @@ test("CARD expectations preserve cents and configuration authority", () => {
     assert.equal(key.asymmetricKeyDetails.modulusLength, 2048);
     assert.deepEqual(result.methodDetails.acceptedNetworks, details.acceptedNetworks);
     assert.equal(result.methodDetails.billingRequired, item.input.request.billingRequired);
+  }
+});
+
+test("CARD validation precedes broadcast and preserves opaque credentials", () => {
+  for (const item of cardCases.cases) {
+    const exchanges = item.platform.exchanges;
+    const first = exchanges.findIndex(({ request }) => request.path === "/v1/mpp/broadcast");
+    if (first >= 0) {
+      assert.equal(exchanges[first - 1].request.path, "/v1/mpp/validate");
+      assert.equal(exchanges[first - 1].response.json.success, true);
+    }
+    if (item.id.includes("validation-") || item.id.endsWith("validate-only"))
+      assert.equal(first, -1);
+    for (const { request } of exchanges) {
+      if (!request.json) continue;
+      assert.deepEqual(request.json.credential, {
+        ...item.input.credential,
+        source: item.input.credential.source ?? "",
+      });
+    }
   }
 });
