@@ -113,7 +113,7 @@ function buildCases(signedChallenges = {}) {
       kind === "tempo"
         ? { type: "transaction", signature: "0xdeadbeef", transactionId }
         : {
-            type: "balance",
+            type: kind === "instrument" ? "instrument" : "balance",
             transactionId,
             approvalId,
             ...(kind === "subscription" ? { subscriptionId } : {}),
@@ -322,6 +322,28 @@ function buildCases(signedChallenges = {}) {
       [getConfig(), validateExchange(kind), broadcastExchange(kind)],
     );
   }
+  add(
+    "mpp.buyer.instrument-primary",
+    "mpp-buyer",
+    "mpp.buyer.fulfil",
+    buyerInput("instrument"),
+    { result: credential("instrument") },
+    [create("instrument", ready("instrument"))],
+  );
+  const unavailableInstrument = {
+    type: "https://paymentauth.org/problems/payment-insufficient",
+    title: "Payment Insufficient",
+    status: 402,
+    detail: "The selected payment instrument is unavailable.",
+  };
+  add(
+    "mpp.buyer.instrument-rejected-no-fallback",
+    "mpp-buyer",
+    "mpp.buyer.fulfil",
+    buyerInput("instrument", { context: { instrumentId } }),
+    failure("payment-failed", { problem: unavailableInstrument }),
+    [create("instrument", { state: "failed", problem: unavailableInstrument }, { instrumentId })],
+  );
   for (const [name, value] of Object.entries({
     "invalid-json": "eyI",
     "wrong-type": "W10",

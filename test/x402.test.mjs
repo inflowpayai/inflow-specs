@@ -95,6 +95,27 @@ test("x402 schemas reject contradictory suite, operation and input combinations"
   }
 });
 
+test("Buyer instrument selection stays outside accepted requirements and cannot fall back", () => {
+  for (const item of x402Cases.cases.filter((entry) =>
+    entry.id.startsWith("x402.buyer.instrument-"),
+  )) {
+    const creations = item.platform.exchanges.filter(({ request }) => request.method === "POST");
+    assert.equal(creations.length, 1);
+    const body = creations[0].request.json;
+    assert.deepEqual(body.accept, item.input.requirement);
+    assert.equal(
+      body.instrumentId,
+      item.input.requirement.scheme === "instrument" ? item.input.instrument_id : undefined,
+    );
+    if (item.input.requirement.scheme !== "instrument") assert.ok(item.input.instrument_id);
+    if (item.expect.error) assert.equal(item.platform.exchanges.length, 2);
+    if (item.input.requirement.scheme === "instrument" && item.expect.result)
+      assert.deepEqual(item.expect.result.paymentPayload.payload, {
+        transactionId: item.expect.result.transactionId,
+      });
+  }
+});
+
 test("settlement response fixtures include the requested network on success and failure", () => {
   for (const item of x402Cases.cases.filter((value) => value.suite === "x402-seller")) {
     for (const { request, response } of item.platform?.exchanges ?? []) {

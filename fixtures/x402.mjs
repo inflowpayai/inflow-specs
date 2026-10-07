@@ -70,6 +70,13 @@ const balance = {
   maxTimeoutSeconds: 300,
   extra: {},
 };
+const instrument = {
+  ...balance,
+  scheme: "instrument",
+  asset: "USD",
+  amount: "1000000000000000000",
+};
+const instrumentId = "55555555-5555-4555-8555-555555555555";
 const exact = {
   scheme: "exact",
   network: "eip155:8453",
@@ -95,7 +102,7 @@ const payload = (accepted = balance) => ({
   x402Version: 2,
   accepted,
   resource,
-  payload: accepted.scheme === "balance" ? { transactionId } : exactData,
+  payload: ["balance", "instrument"].includes(accepted.scheme) ? { transactionId } : exactData,
   extensions: { "payment-identifier": identifier() },
 });
 const permit2Payload = {
@@ -117,6 +124,13 @@ const supported = {
 };
 const buyerSupport = () =>
   exchange("GET", "/v1/transactions/x402-supported", buyerHeaders, undefined, supported);
+const instrumentSupport = () => {
+  const response = buyerSupport();
+  response.response.json = {
+    kinds: [...supported.kinds, { scheme: "instrument", network: "inflow:1", x402Version: 2 }],
+  };
+  return response;
+};
 const created = {
   amount: "1",
   currency: "USDC",
@@ -230,6 +244,45 @@ for (const [name, requirement] of [
     signed(requirement),
     [buyerSupport(), create(requirement), poll(ready(requirement))],
   );
+for (const [name, requirement, selection] of [
+  ["primary", instrument, undefined],
+  ["selected", instrument, instrumentId],
+  ["selection-does-not-affect-balance", balance, instrumentId],
+  ["selection-does-not-affect-exact", exact, instrumentId],
+]) {
+  const creation = create(requirement, {
+    currency: requirement.scheme === "instrument" ? "USD" : "USDC",
+  });
+  if (requirement.scheme === "instrument" && selection !== undefined)
+    creation.request.json.instrumentId = selection;
+  add(
+    `x402.buyer.instrument-${name}`,
+    "x402-buyer",
+    "x402.buyer.sign",
+    {
+      ...buyerInput(requirement),
+      ...(selection === undefined ? {} : { instrument_id: selection }),
+    },
+    signed(requirement),
+    [instrumentSupport(), creation, poll(ready(requirement))],
+  );
+}
+const rejectedInstrument = {
+  code: "PARAMETER_INVALID",
+  message: "The selected card is unavailable.",
+};
+const rejectedCreation = create(instrument, rejectedInstrument, 400);
+rejectedCreation.request.json.instrumentId = instrumentId;
+rejectedCreation.response.json = rejectedInstrument;
+add(
+  "x402.buyer.instrument-rejected-no-fallback",
+  "x402-buyer",
+  "x402.buyer.sign",
+  { ...buyerInput(instrument), instrument_id: instrumentId },
+  failure("api-error", { body: rejectedInstrument }, 400),
+  [instrumentSupport(), rejectedCreation],
+);
+
 for (const status of ["INITIATED", "PENDING", "PROCESSING", "SETTLED"]) {
   add(
     `x402.buyer.wait-${status.toLowerCase()}`,
