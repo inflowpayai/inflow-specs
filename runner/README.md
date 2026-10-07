@@ -14,12 +14,11 @@ report cannot prove that an adapter actually used the SDK.
 
 The [MPP corpus](../contracts/mpp.md) supplies payment cases and the
 [TAP corpus](../contracts/tap.md#shared-adapter-operation) supplies request-verification cases; SDK
-adapters are not implemented in this repository. The separate
-[CARD Seller corpus](../contracts/card.md) checks offers, credential forwarding, and verification.
-The local HTTP platform supports scripted exchanges, including shared runtime fixtures. Use only
-synthetic credentials and local services. The runner is not a network sandbox: it executes the
-supplied program with the caller's environment and working directory. Run trusted adapters without
-production credentials.
+adapters are not implemented in this repository. The separate [CARD corpus](../contracts/card.md)
+checks Buyer fulfilment, Seller offers, and verification. The local HTTP platform supports scripted
+exchanges, including shared runtime fixtures. Use only synthetic credentials and local services. The
+runner is not a network sandbox: it executes the supplied program with the caller's environment and
+working directory. Run trusted adapters without production credentials.
 
 ## Run
 
@@ -166,6 +165,9 @@ cannot carry bodies. Framing headers are controlled by the server. Optional `del
 second) and `disconnect` provide fault injection. A mismatched or extra request gets a tooling HTTP
 500 and fails the case; that diagnostic response is not an InFlow API contract. Missing exchanges
 also fail, even if an adapter returns the expected observation.
+
+An empty exchange list requires rejection without any platform request. The local server still runs
+and rejects any unexpected request; it is not permission to skip network assertions.
 
 Scripts contain at most 200 exchanges and 1 MiB of serialized configuration. Request bodies are
 limited to 64 KiB, and stalled sockets have a 2-second inactivity timeout. The runner's response

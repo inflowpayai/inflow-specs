@@ -12,6 +12,21 @@ const exchange = (request = {}, response = {}) => ({
   response: { status: 200, json: { ok: true }, ...response },
 });
 const script = (...exchanges) => ({ exchanges });
+
+test("zero-exchange scripts pass without requests and reject unexpected requests", async () => {
+  const platform = await startPlatform(script());
+  try {
+    platform.assertComplete();
+    await platform.waitComplete(1000);
+    const response = await fetch(`${platform.baseUrl}/unexpected`);
+    assert.equal(response.status, 500);
+    await response.text();
+    assert.throws(() => platform.assertComplete());
+    await assert.rejects(platform.waitComplete(1000));
+  } finally {
+    await platform.close();
+  }
+});
 const send = (base, expected) =>
   fetch(base + expected.path, {
     method: expected.method,
@@ -194,7 +209,7 @@ test("delay, malformed JSON, disconnect, and cancellation are bounded faults", a
 
 test("rejects invalid scripts and HTTP framing overrides before listening", async () => {
   for (const config of [
-    script(),
+    { exchanges: null },
     script(exchange({}, { status: 199 })),
     script(exchange({}, { text: "also json" })),
     script(exchange({}, { delay_ms: 1001 })),

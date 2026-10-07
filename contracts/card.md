@@ -1,4 +1,4 @@
-# CARD charge Seller contract
+# CARD charge contract
 
 CARD carries an encrypted network-token credential. It is distinct from Stripe Shared Payment Tokens
 and from selecting a linked InFlow instrument for an x402 purchase. InFlow's CARD profile supports
@@ -76,20 +76,54 @@ and
 [protected-route tests](https://github.com/inflowpayai/inflow-node/blob/1e55446bc612796c5e24c76cd9ef6a375de045ee/packages/mpp-seller/test/unit/card-method.test.ts)
 provide implementation examples.
 
+## Buyer selection and fulfilment
+
+The Buyer supplies merchant context (`name`, absolute HTTP or HTTPS `url`, and two-letter
+`countryCode`) and may select a linked card using its UUID `instrumentId`. When omitted, InFlow uses
+the account's primary instrument. The server checks ownership, enabled Visa status, and an unexpired
+USD allowance covering the purchase. The SDK does not choose an arbitrary card or infer an
+allowance. Merchant context does not override the signed challenge or the server's configured
+merchant records.
+
+Reject structurally invalid options before making a platform request. Server validation remains
+authoritative for registered countries, card eligibility, allowances, merchant ownership, and
+cryptographic key validity. Node's public reference is the
+[CARD Buyer method](https://github.com/inflowpayai/inflow-node/blob/1e55446bc612796c5e24c76cd9ef6a375de045ee/packages/mpp-buyer/src/methods.client.ts#L11).
+
+Submit the unchanged wire challenge and selected options to `POST /v1/transactions/mpp` using Buyer
+authentication. Do not automatically retry creation after an uncertain response. A pending result is
+polled at `GET /v1/transactions/{transactionId}/mpp`; it is not permission to create another
+purchase. Preserve a failed result's problem and transaction identifier, and distinguish expiry from
+failure. If fulfilment fails after receiving an approval identifier, attempt approval cancellation
+without replacing the original failure with a cancellation error.
+
+A ready result means that an encrypted purchase credential is available, not that the Seller has
+accepted or settled the payment. Before returning it, require the entire returned challenge to match
+the requested challenge, including its request, expiry, description, digest and opaque data. Reject
+a missing or malformed credential or payload. Preserve valid opaque encrypted data, source, billing
+fields and payload extensions. The Buyer neither decrypts the credential nor replaces a mismatched
+challenge with the expected one. The credential is submitted to the Seller for processing.
+
+The
+[Node HTTP-fetch tests](https://github.com/inflowpayai/inflow-node/blob/1e55446bc612796c5e24c76cd9ef6a375de045ee/packages/mpp-buyer/test/integration/card-fetch.test.ts)
+exercise the real upstream client framework, including API-key isolation from the Seller and bearer
+authentication. Shared fulfilment cases alone do not certify that full HTTP transport.
+
 ## Shared cases and limits of verification
 
-Generate the [CARD Seller corpus](../fixtures/card.mjs) with:
+Generate the [CARD corpus](../fixtures/card.mjs) with:
 
 ```sh
 node fixtures/card.mjs > /tmp/inflow-card-cases.json
 ```
 
-Select `mpp-seller` with no optional feature declarations. Offer cases use `mpp.seller.prepare`: the
-adapter initializes the public CARD Seller factory and asks its real payment framework to construct
-a challenge. It returns that challenge's decoded request, excluding nondeterministic challenge
-identifiers and expiry. The adapter must not perform the conversion or configuration validation
-itself. Normalize invalid route inputs to `invalid-input` and unavailable configuration to
-`unsupported-capability`, using the [MPP error messages](mpp.md).
+Select `mpp-seller`, `mpp-buyer`, or both according to the packages under test, with no optional
+feature declarations. Offer cases use `mpp.seller.prepare`: the adapter initializes the public CARD
+Seller factory and asks its real payment framework to construct a challenge. It returns that
+challenge's decoded request, excluding nondeterministic challenge identifiers and expiry. The
+adapter must not perform the conversion or configuration validation itself. Normalize invalid route
+inputs to `invalid-input` and unavailable configuration to `unsupported-capability`, using the
+[MPP error messages](mpp.md).
 
 Lifecycle cases use the existing `mpp.seller.validate`, `mpp.seller.verify`, and
 `mpp.seller.route-binding` operations. Validation and verification inputs contain wire-encoded
@@ -97,11 +131,17 @@ challenges; adapters decode them only as required by the public API. Route-bindi
 challenge through the actual framework, submit its credential to a route with changed terms, and
 require rejection without platform calls. Adapters must not implement binding or settlement checks.
 
+Buyer cases use `mpp.buyer.fulfil` through the public CARD method. Return the decoded Payment
+credential, or the shared error classification. Invalid options use `invalid-input`; a missing or
+mismatched credential uses `invalid-credential`. Failed and expired results retain a supplied
+transaction identifier as `error.details.transaction_id`; failed results also retain their problem
+as `error.details.problem`. Empty platform scripts assert no requests, not skipped verification.
+
 The corpus uses a test-only public key, synthetic opaque credentials, and a scripted local platform.
 It verifies offer construction, credential forwarding, selected route changes, validation/broadcast
 sequencing, receipt checks, and retry keys. It does not prove encryption, decryption, token
-validity, persisted replay protection, Buyer issuance, or live settlement. Language-native
-protected-route tests must also cover signature tampering, expiry, challenge description
-preservation, successful content delivery with a receipt, and absence of a receipt on errors.
-Standalone lifecycle hooks do not prove those framework behaviors. Tooling tests validate fixtures
-and the runner, not an SDK.
+validity, persisted replay protection, actual Buyer token issuance, or live settlement.
+Language-native protected-route tests must also cover signature tampering, expiry, challenge
+description preservation, successful content delivery with a receipt, and absence of a receipt on
+errors. Standalone lifecycle hooks do not prove those framework behaviors. Tooling tests validate
+fixtures and the runner, not an SDK.
