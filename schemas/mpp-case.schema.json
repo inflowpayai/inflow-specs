@@ -263,7 +263,7 @@
               "minLength": 1
             },
             "method": {
-              "enum": ["inflow", "tempo", "stripe"]
+              "enum": ["inflow", "tempo", "stripe", "card"]
             },
             "intent": {
               "enum": ["charge", "subscription"]
