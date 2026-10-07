@@ -594,6 +594,92 @@ for (const [name, price] of [
     failure("invalid-input"),
   );
 }
+const instrumentConfig = clone(config);
+instrumentConfig.paymentMethods.push({
+  scheme: "instrument",
+  network: "inflow:1",
+  payTo: sellerId,
+  decimals: 18,
+  extra: { processor: "test-processor", assetName: "must-not-override-USD" },
+});
+const instrumentOffer = {
+  scheme: "instrument",
+  network: "inflow:1",
+  payTo: sellerId,
+  price: { asset: "USD", amount: "1000000000000000000" },
+  maxTimeoutSeconds: 300,
+  extra: { processor: "test-processor", assetName: "USD" },
+};
+for (const [name, options, result] of [
+  ["not-default", { price: "$1" }, [offer, balanceOffer]],
+  ["explicit", { price: "$1", schemes: ["instrument"] }, [instrumentOffer]],
+  ["mixed", { price: "$1", schemes: ["balance", "instrument"] }, [balanceOffer, instrumentOffer]],
+  ["stablecoin", { price: "1 USDC", schemes: ["instrument"] }, []],
+  ["network-filter", { price: "$1", schemes: ["instrument"], networks: [exact.network] }, []],
+  [
+    "minimum",
+    { price: "$0.50", schemes: ["instrument"] },
+    [{ ...instrumentOffer, price: { asset: "USD", amount: "500000000000000000" } }],
+  ],
+  ["trailing-zero", { price: "$1.000", schemes: ["instrument"] }, [instrumentOffer]],
+  [
+    "maximum",
+    { price: "$92233720368547758.07", schemes: ["instrument"] },
+    [
+      {
+        ...instrumentOffer,
+        price: { asset: "USD", amount: "92233720368547758070000000000000000" },
+      },
+    ],
+  ],
+]) {
+  add(
+    `x402.seller.instrument-${name}`,
+    "x402-seller",
+    "x402.seller.offers",
+    { config: instrumentConfig, options },
+    { result },
+  );
+}
+for (const [name, price] of [
+  ["zero", "$0"],
+  ["below-minimum", "$0.49"],
+  ["fractional-cent", "$1.001"],
+  ["above-maximum", "$92233720368547758.08"],
+]) {
+  add(
+    `x402.seller.instrument-${name}`,
+    "x402-seller",
+    "x402.seller.offers",
+    { config: instrumentConfig, options: { price, schemes: ["instrument"] } },
+    failure("invalid-input"),
+  );
+}
+add(
+  "x402.seller.instrument-unavailable",
+  "x402-seller",
+  "x402.seller.offers",
+  { config, options: { price: "$1", schemes: ["instrument"] } },
+  { result: [] },
+);
+add(
+  "x402.seller.instrument-without-blockchain-assets",
+  "x402-seller",
+  "x402.seller.offers",
+  {
+    config: { ...instrumentConfig, assets: [], wallets: [] },
+    options: { price: "$1", schemes: ["instrument"] },
+  },
+  { result: [instrumentOffer] },
+);
+add(
+  "x402.seller.instrument-minimum-does-not-restrict-balance",
+  "x402-seller",
+  "x402.seller.offers",
+  { config: instrumentConfig, options: { price: "$0.01", schemes: ["balance"] } },
+  { result: [{ ...balanceOffer, price: { asset: "USDC", amount: "1000000" } }] },
+);
+
 const meteredConfig = clone(config);
 meteredConfig.supported.push({
   scheme: "upto",

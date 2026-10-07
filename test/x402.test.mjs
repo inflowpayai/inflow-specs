@@ -32,6 +32,31 @@ test("x402 corpus exports deterministic schema-checked operations", () => {
   }
 });
 
+test("Instrument fixtures preserve exact cent boundaries and the independent wire scale", () => {
+  const find = (suffix) => {
+    const item = x402Cases.cases.find((entry) => entry.id === `x402.seller.instrument-${suffix}`);
+    assert.ok(item);
+    return item;
+  };
+  for (const [name, cents] of [
+    ["minimum", 50n],
+    ["maximum", (1n << 63n) - 1n],
+  ]) {
+    const item = find(name);
+    const offer = item.expect.result[0];
+    assert.equal(offer.price.asset, "USD");
+    assert.equal(BigInt(offer.price.amount), cents * 10n ** 16n);
+    assert.equal(offer.payTo, item.input.config.sellerId);
+  }
+  assert.deepEqual(find("trailing-zero").expect, find("explicit").expect);
+  for (const name of ["zero", "below-minimum", "fractional-cent", "above-maximum"]) {
+    assert.equal(find(name).expect.error.code, "invalid-input");
+  }
+  assert.ok(find("not-default").expect.result.every((offer) => offer.scheme !== "instrument"));
+  assert.deepEqual(find("without-blockchain-assets").input.config.assets, []);
+  assert.deepEqual(find("without-blockchain-assets").expect, find("explicit").expect);
+});
+
 test("x402 schemas reject contradictory suite, operation and input combinations", () => {
   const original = x402Cases.cases.find((item) => item.id === "x402.buyer.ready-balance");
   for (const mutate of [
