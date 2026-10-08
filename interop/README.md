@@ -13,7 +13,8 @@ when updating SDK revisions.
 
 ## MPP cases
 
-Every pair exercises InFlow balance charges and Tempo charges with:
+Every pair exercises InFlow balance charges, instrument charges, CARD charges, and Tempo charges
+with:
 
 - An immediately available credential.
 - A pending approval followed by a ready credential.
@@ -30,20 +31,34 @@ Assertions cover payment terms, credential preservation, API-key separation, req
 approval polling, receipt identity, application responses, and settlement before application
 execution. Rejected verification must not broadcast or run the application handler. Rejected
 settlement must not run the handler. Peer stdout, stderr, and platform request sequences are
-retained for each case. The normal case suite contains 232 executions, 16 explicit unsupported
+retained for each case. The normal case suite contains 472 executions, 16 explicit unsupported
 entries, and 16 receipt negative controls.
 
 These tests do not prove live signing, fund movement, platform replay protection, or every SDK
-feature. They supplement—not replace—the shared conformance corpus and language-native tests.
-Instrument-rail charges, Stripe, TAP, x402 interoperability, and credentialed sandbox certification
-are outside this matrix.
+feature. They supplement—not replace—the shared conformance corpus and language-native tests. TAP
+and credentialed sandbox certification are outside this matrix.
+
+Instrument and CARD cases also exercise pending settlement with and without an authentication
+action. Each Buyer explicitly reads the original transaction twice, observes `PENDING` followed by
+`SETTLED`, and preserves the authentication URL without fetching it. The runner resends the original
+credential to the Seller and checks its receipt; no replacement purchase is created. This is
+caller-directed recovery, not automatic SDK retries or a test of processor authentication.
+
+Stripe cases use an external synthetic payer, hosted by the Node peer, against each Seller. They do
+not use an InFlow Stripe Buyer or create a real Stripe token. These cases exercise ready,
+verification-rejected, settlement-rejected, and handler-error responses.
+
+For pending settlement, Node, Go, and the Rust peer return the platform's `503` Problem Details.
+pympp's decorator returns HTTP `402` while preserving `status: 503` and the explanation in the body.
+The matrix checks that explicit upstream difference rather than discarding the problem.
 
 ## x402 cases
 
-Every pair exercises InFlow balance payments and EVM exact payments using the Base configuration
-from the shared x402 fixtures. Each scheme runs five scenarios: ready payment, pending approval,
-rejected verification, rejected settlement, and application handler failure. This produces 160
-normal executions and 16 corrupted-receipt controls, with no unsupported cells.
+Every pair exercises InFlow balance payments, instrument payments, and EVM exact payments using the
+Base configuration from the shared x402 fixtures. Each scheme runs five scenarios: ready payment,
+pending approval, rejected verification, rejected settlement, and application handler failure.
+Instrument payments also run authentication and uncertain-result recovery scenarios. This produces
+272 normal executions and 16 corrupted-receipt controls, with no unsupported cells.
 
 Assertions check the scheme, network, asset, amount, recipient, resource URL, complete payment
 payload and identifier, separate Buyer and Seller API keys, polling, and receipt identity. The
@@ -54,6 +69,12 @@ x402 executes the handler after verification but before settlement. A verificati
 not run the handler or settle. A handler error must not settle. A settlement rejection must return
 402 without the paid response body or a successful receipt, even though the handler has already run.
 Each payment must be created once, verified once, and settled at most once in these scenarios.
+
+Recovery cases explicitly read the original transaction twice before the runner resends its original
+payment payload. They assert one purchase and a successful recovery receipt. The Seller verifies and
+executes the application handler again before settlement on this retry; applications must make their
+own side effects safe to repeat. These tests simulate a non-successful settlement response followed
+by status recovery, not a dropped network response or real processor settlement.
 
 The platform returns synthetic signed payloads. This matrix does not verify cryptographic signing,
 on-chain transactions, replay protection, external-wallet Buyers, every blockchain, Permit2, metered
@@ -102,7 +123,7 @@ exchange using the installed packages. It requires no sandbox deployment, accoun
 real credentials. The platform responses are synthetic; deployed-platform behavior and actual
 signing and settlement are not certified.
 
-The peer programs are copied from the revisions in `sdk-lock.json`; SDK implementations are not
+The peer programs are copied from `peerRevisions` in `releases.json`; SDK implementations are not
 copied or linked from those checkouts. Node's peer uses directory links within its npm installation
 to retain its expected directory layout. Go has no module replacement, Python runs in an isolated
 virtual environment, and every InFlow Rust dependency must resolve from crates.io at the pinned
@@ -113,8 +134,11 @@ Run **Actions → Released-package payment checks → Run workflow** and downloa
 runtime and package versions, and dependency inventories. A failed installation, build, or payment
 case prevents a passing result. Updating release pins is independent of publishing an SDK.
 
-For a local run, use the same clean pinned SDK checkouts described above; no Node build or Python
-checkout environment is needed. Install Node, npm, Go, uv, and Rust 1.93.0, then run:
+These peer revisions are independent of `sdk-lock.json`: update them with the release versions so
+peers do not require APIs missing from the installed packages.
+
+For a local run, use clean SDK checkouts at the `releases.json` peer revisions; no Node build or
+Python checkout environment is needed. Install Node, npm, Go, uv, and Rust 1.93.0, then run:
 
 ```sh
 node interop/releases.mjs /path/to/sdk-parent /path/to/new-consumer-directory

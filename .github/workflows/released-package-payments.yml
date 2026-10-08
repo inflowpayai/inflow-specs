@@ -23,7 +23,7 @@ jobs:
         id: pins
         run: |
           for language in node go python rust; do
-            revision=$(jq -er --arg language "$language" '.[$language] | select(test("^[0-9a-f]{40}$"))' specs/interop/sdk-lock.json)
+            revision=$(jq -er --arg language "$language" '.peerRevisions[$language] | select(test("^[0-9a-f]{40}$"))' specs/interop/releases.json)
             echo "$language=$revision" >> "$GITHUB_OUTPUT"
           done
       - uses: actions/checkout@v7

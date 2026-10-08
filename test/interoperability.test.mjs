@@ -90,7 +90,7 @@ test("peer bounds output and responds to cancellation", async () => {
 
 test("matrix enumerates every pair and explicit subscription limitations", () => {
   const cases = caseList();
-  assert.equal(cases.filter((c) => !c.unsupported).length, 232);
+  assert.equal(cases.filter((c) => !c.unsupported).length, 472);
   assert.equal(cases.filter((c) => c.unsupported).length, 16);
   for (const buyer of languages)
     for (const seller of languages) {
@@ -98,7 +98,34 @@ test("matrix enumerates every pair and explicit subscription limitations", () =>
       for (const variant of ["charge", "tempo"]) {
         assert.equal(pair.filter((c) => c.variant === variant && !c.unsupported).length, 5);
       }
+      for (const variant of ["instrument", "card"]) {
+        assert.equal(pair.filter((c) => c.variant === variant).length, 7);
+      }
+      assert.equal(pair.filter((c) => c.variant === "stripe").length, buyer === "node" ? 4 : 0);
     }
+});
+
+test("pending settlement preserves its problem without returning paid content", () => {
+  const problem = {
+    type: "https://paymentauth.org/problems/settlement-unavailable",
+    status: 503,
+    detail: "Synthetic payment is pending.",
+  };
+  for (const seller of languages) {
+    const sample = { ...testCase, seller, variant: "card", scenario: "uncertain" };
+    const pending = {
+      status: seller === "python" ? 402 : 503,
+      body: JSON.stringify(problem),
+      receipt: null,
+    };
+    checkResult(sample, pending, events.slice(0, 3));
+    assert.throws(() =>
+      checkResult(sample, { ...pending, body: "Payment required" }, events.slice(0, 3)),
+    );
+    assert.throws(() =>
+      checkResult(sample, { ...pending, receipt: result.receipt }, events.slice(0, 3)),
+    );
+  }
 });
 
 test("successful observations require receipt identity and complete lifecycle", () => {
@@ -125,9 +152,16 @@ test("successful observations require receipt identity and complete lifecycle", 
 test("rejection never permits the application handler", () => {
   for (const scenario of ["invalid", "settlement-failed"]) {
     const requestEvents = events.slice(0, scenario === "invalid" ? 2 : 3);
-    checkResult({ ...testCase, scenario }, { status: 402 }, requestEvents);
+    checkResult(
+      { ...testCase, scenario },
+      { status: 402, body: "Payment required" },
+      requestEvents,
+    );
     assert.throws(() =>
-      checkResult({ ...testCase, scenario }, { status: 402 }, [...requestEvents, "POST /handler"]),
+      checkResult({ ...testCase, scenario }, { status: 402, body: "Payment required" }, [
+        ...requestEvents,
+        "POST /handler",
+      ]),
     );
   }
 });

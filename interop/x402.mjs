@@ -12,12 +12,31 @@ const config = x402Cases.cases.find((c) => c.id === "x402.seller.offers-default"
 const supported = x402Cases.cases
   .flatMap((c) => c.platform?.exchanges ?? [])
   .find((e) => e.request.path === "/v1/transactions/x402-supported").response.json;
+const instrumentConfig = structuredClone(config);
+instrumentConfig.paymentMethods.push({
+  scheme: "instrument",
+  network: "inflow:1",
+  payTo: sellerId,
+  decimals: 18,
+});
+const instrumentSupported = {
+  kinds: [...supported.kinds, { scheme: "instrument", network: "inflow:1", x402Version: 2 }],
+};
+const recovery = (scenario) => ["authenticate", "uncertain"].includes(scenario);
+const instrumentId = "55555555-5555-4555-8555-555555555555";
 
 export function caseList() {
   return languages.flatMap((buyer) =>
     languages.flatMap((seller) =>
-      ["balance", "exact"].flatMap((variant) =>
-        ["ready", "pending", "invalid", "settlement-failed", "handler-failed"].map((scenario) => ({
+      ["balance", "exact", "instrument"].flatMap((variant) =>
+        [
+          "ready",
+          "pending",
+          "invalid",
+          "settlement-failed",
+          "handler-failed",
+          ...(variant === "instrument" ? ["authenticate", "uncertain"] : []),
+        ].map((scenario) => ({
           buyer,
           seller,
           variant,
@@ -33,7 +52,8 @@ export function checkResult(test, result, events, network) {
   assert.equal(count("POST /v1/transactions/x402"), 1);
   assert.equal(count(`GET /v1/transactions/${id}/x402`), test.scenario === "pending" ? 2 : 1);
   assert.equal(count("POST /v1/x402/verify"), 1);
-  const denied = ["invalid", "settlement-failed"].includes(test.scenario);
+  const denied =
+    ["invalid", "settlement-failed"].includes(test.scenario) || recovery(test.scenario);
   const settled = !["invalid", "handler-failed"].includes(test.scenario);
   assert.equal(result.status, denied ? 402 : test.scenario === "handler-failed" ? 500 : 200);
   assert.equal(count("POST /handler"), test.scenario === "invalid" ? 0 : 1);
@@ -63,7 +83,10 @@ export async function runCase(test, commands, signal, corruptReceipt = false) {
   const events = [],
     errors = [];
   const evidence = { ...test, events, passed: false };
-  let payload, target;
+  let payload,
+    target,
+    recovered = false,
+    statusReads = 0;
   const platform = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     const send = (value) => res.end(JSON.stringify(value));
@@ -87,9 +110,17 @@ export async function runCase(test, commands, signal, corruptReceipt = false) {
         `test-only-${path.startsWith("/v1/transactions") ? "buyer" : "seller"}-key`,
       );
       const capabilities = {
-        "/v1/x402/config": config,
-        "/v1/transactions/x402-supported": supported,
-        "/v1/x402/supported": { kinds: config.supported },
+        "/v1/x402/config": test.variant === "instrument" ? instrumentConfig : config,
+        "/v1/transactions/x402-supported":
+          test.variant === "instrument" ? instrumentSupported : supported,
+        "/v1/x402/supported": {
+          kinds: [
+            ...config.supported,
+            ...(test.variant === "instrument"
+              ? [{ scheme: "instrument", network: "inflow:1", x402Version: 2 }]
+              : []),
+          ],
+        },
       };
       if (Object.hasOwn(capabilities, path)) {
         assert.equal(req.method, "GET");
@@ -105,9 +136,21 @@ export async function runCase(test, commands, signal, corruptReceipt = false) {
         );
         assert.equal(
           body.accept.asset,
-          test.variant === "exact" ? config.assets[0].assetId : "USDC",
+          test.variant === "exact"
+            ? config.assets[0].assetId
+            : test.variant === "instrument"
+              ? "USD"
+              : "USDC",
         );
-        assert.equal(body.accept.amount, test.variant === "exact" ? "10000" : "1000000");
+        assert.equal(
+          body.accept.amount,
+          test.variant === "exact"
+            ? "10000"
+            : test.variant === "instrument"
+              ? "1250000000000000000"
+              : "1000000",
+        );
+        if (test.variant === "instrument") assert.equal(body.instrumentId, instrumentId);
         assert.equal(
           body.accept.payTo,
           test.variant === "exact" ? config.wallets[0].address : sellerId,
@@ -142,8 +185,25 @@ export async function runCase(test, commands, signal, corruptReceipt = false) {
           transactionId: id,
           approvalId: approval,
           approvalStatus: "APPROVED",
-          amount: "0.01",
-          currency: "USDC",
+          amount: test.variant === "instrument" ? "1.25" : "0.01",
+          currency: test.variant === "instrument" ? "USD" : "USDC",
+        });
+      }
+      if (path === `/v1/transactions/${id}`) {
+        assert.equal(req.method, "GET");
+        assert.ok(recovery(test.scenario));
+        recovered = ++statusReads === 2;
+        return send({
+          transactionId: id,
+          status: recovered ? "SETTLED" : "PENDING",
+          ...(!recovered && test.scenario === "authenticate"
+            ? {
+                nextAction: {
+                  type: "authenticate_card",
+                  url: `http://127.0.0.1:${platform.address().port}/must-not-open`,
+                },
+              }
+            : {}),
         });
       }
       if (path === `/v1/transactions/${id}/x402`) {
@@ -170,14 +230,16 @@ export async function runCase(test, commands, signal, corruptReceipt = false) {
             payer,
             ...(test.scenario === "invalid" ? { invalidReason: "test_rejected" } : {}),
           });
-        assert.equal(events.filter((e) => e === "POST /v1/x402/verify").length, 1);
-        assert.equal(events.filter((e) => e === "POST /handler").length, 1);
+        assert.equal(events.filter((e) => e === "POST /v1/x402/verify").length, recovered ? 2 : 1);
+        assert.equal(events.filter((e) => e === "POST /handler").length, recovered ? 2 : 1);
         return send({
-          success: test.scenario !== "settlement-failed",
+          success: test.scenario !== "settlement-failed" && (!recovery(test.scenario) || recovered),
           payer,
           network: payload.accepted.network,
           transaction: corruptReceipt ? approval : id,
-          ...(test.scenario === "settlement-failed" ? { errorReason: "test_rejected" } : {}),
+          ...(test.scenario === "settlement-failed" || (recovery(test.scenario) && !recovered)
+            ? { errorReason: "test_rejected" }
+            : {}),
         });
       }
       throw Error(`Unexpected platform request: ${req.method} ${path}`);
@@ -193,6 +255,7 @@ export async function runCase(test, commands, signal, corruptReceipt = false) {
     Protocol: "x402",
     Platform: `http://127.0.0.1:${platform.address().port}`,
     Variant: test.variant,
+    ...(test.variant === "instrument" ? { InstrumentID: instrumentId } : {}),
     HandlerStatus: test.scenario === "handler-failed" ? 500 : 200,
   };
   let seller, buyer;
@@ -201,6 +264,46 @@ export async function runCase(test, commands, signal, corruptReceipt = false) {
     target = await seller.ready();
     buyer = startPeer(commands[test.buyer], { ...settings, Role: "buyer", Target: target }, signal);
     evidence.result = await buyer.result();
+    if (recovery(test.scenario)) {
+      checkResult(test, evidence.result, events, payload.accepted.network);
+      evidence.initial_buyer_log = await buyer.stop();
+      buyer = startPeer(
+        commands[test.buyer],
+        { ...settings, Role: "buyer", Target: target, StatusID: id },
+        signal,
+      );
+      evidence.snapshots = await buyer.result();
+      assert.deepEqual(
+        evidence.snapshots.map((s) => s.status),
+        ["PENDING", "SETTLED"],
+      );
+      assert.ok(evidence.snapshots.every((s) => s.transactionId === id));
+      assert.deepEqual(
+        evidence.snapshots[0].nextAction,
+        test.scenario === "authenticate"
+          ? { type: "authenticate_card", url: `${settings.Platform}/must-not-open` }
+          : undefined,
+      );
+      assert.equal(evidence.snapshots[1].nextAction, undefined);
+      assert.equal(statusReads, 2);
+      const replay = await fetch(target, {
+        headers: {
+          "X-App-Session": "test-only-session",
+          "PAYMENT-SIGNATURE": Buffer.from(JSON.stringify(payload)).toString("base64"),
+        },
+        redirect: "error",
+        signal,
+      });
+      assert.equal(replay.status, 200);
+      assert.deepEqual(await replay.json(), { paidResource: true });
+      const receipt = JSON.parse(Buffer.from(replay.headers.get("PAYMENT-RESPONSE"), "base64"));
+      assert.equal(receipt.success, true);
+      assert.equal(receipt.transaction, id);
+      assert.equal(receipt.network, payload.accepted.network);
+      assert.equal(events.filter((e) => e === "POST /v1/transactions/x402").length, 1);
+      evidence.recovery =
+        "Original payload replayed after explicit status reads; no replacement purchase";
+    }
   } catch (error) {
     evidence.error = error.stack;
   } finally {
@@ -213,7 +316,8 @@ export async function runCase(test, commands, signal, corruptReceipt = false) {
   if (!evidence.error) {
     try {
       assert.deepEqual(errors, []);
-      checkResult(test, evidence.result, events, payload.accepted.network);
+      if (!recovery(test.scenario))
+        checkResult(test, evidence.result, events, payload.accepted.network);
       assert.ok(!corruptReceipt, "Corrupted receipt was not rejected");
       evidence.passed = true;
     } catch (error) {
