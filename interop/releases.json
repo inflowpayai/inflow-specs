@@ -9,5 +9,11 @@
   },
   "go": "v0.2.0",
   "python": "0.2.0",
-  "rust": "0.2.0"
+  "rust": "0.2.0",
+  "peerRevisions": {
+    "node": "a658ccb48caa92451899e5c77edec3244f408870",
+    "go": "bb35c8d0ad3deee43d738df8ee5d699503dc509d",
+    "python": "f4f7b06b1ad992010c25eb085177ed5a3626795c",
+    "rust": "1330d100c506dc491f6d01704ba209f97224263c"
+  }
 }

@@ -20,10 +20,10 @@ const result = {
   receipt: { success: true, transaction: id, network },
 };
 
-test("x402 matrix covers every pair, both schemes and all five outcomes", () => {
+test("x402 matrix covers every pair, three schemes and instrument recovery", () => {
   const cases = caseList();
-  assert.equal(cases.length, 160);
-  assert.equal(new Set(cases.map((c) => JSON.stringify(c))).size, 160);
+  assert.equal(cases.length, 272);
+  assert.equal(new Set(cases.map((c) => JSON.stringify(c))).size, 272);
   for (const buyer of languages)
     for (const seller of languages)
       for (const variant of ["balance", "exact"])
@@ -33,6 +33,26 @@ test("x402 matrix covers every pair, both schemes and all five outcomes", () => 
             .map((c) => c.scenario),
           ["ready", "pending", "invalid", "settlement-failed", "handler-failed"],
         );
+});
+
+test("instrument recovery is included for every Buyer and Seller pair", () => {
+  for (const buyer of languages)
+    for (const seller of languages) {
+      assert.deepEqual(
+        caseList()
+          .filter((c) => c.buyer === buyer && c.seller === seller && c.variant === "instrument")
+          .map((c) => c.scenario),
+        [
+          "ready",
+          "pending",
+          "invalid",
+          "settlement-failed",
+          "handler-failed",
+          "authenticate",
+          "uncertain",
+        ],
+      );
+    }
 });
 
 test("successful x402 observations require complete lifecycle, receipt and private caching", () => {

@@ -40,8 +40,8 @@ async function main() {
   const output = resolve(outputDirectory);
   mkdirSync(output);
   const roots = Object.fromEntries(languages.map((l) => [l, resolve(sdkDirectory, `inflow-${l}`)]));
-  const pins = JSON.parse(readFileSync(new URL("sdk-lock.json", import.meta.url)));
   const versions = JSON.parse(readFileSync(new URL("releases.json", import.meta.url)));
+  const pins = versions.peerRevisions;
   const root = fileURLToPath(new URL("..", import.meta.url));
   const report = {
     contract_revision: run(root, "git", ["rev-parse", "HEAD"]),

@@ -23,7 +23,10 @@ test("released-package checks cover both outcomes and protocols for every langua
 
 test("released SDK versions are exact stable pins, not source paths or floating tags", () => {
   const versions = JSON.parse(readFileSync(new URL("../interop/releases.json", import.meta.url)));
-  assert.deepEqual(Object.keys(versions), languages);
+  assert.deepEqual(Object.keys(versions), [...languages, "peerRevisions"]);
+  assert.deepEqual(Object.keys(versions.peerRevisions), languages);
+  for (const revision of Object.values(versions.peerRevisions))
+    assert.match(revision, /^[0-9a-f]{40}$/);
   assert.deepEqual(Object.keys(versions.node), [
     "@inflowpayai/mpp",
     "@inflowpayai/mpp-buyer",
