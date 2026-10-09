@@ -1,19 +1,19 @@
 {
   "node": {
-    "@inflowpayai/mpp": "0.10.1",
-    "@inflowpayai/mpp-buyer": "0.7.3",
-    "@inflowpayai/mpp-seller": "0.8.3",
-    "@inflowpayai/x402": "0.10.0",
-    "@inflowpayai/x402-buyer": "0.10.0",
-    "@inflowpayai/x402-seller": "0.8.0"
+    "@inflowpayai/mpp": "0.11.0",
+    "@inflowpayai/mpp-buyer": "0.8.0",
+    "@inflowpayai/mpp-seller": "0.10.0",
+    "@inflowpayai/x402": "0.11.0",
+    "@inflowpayai/x402-buyer": "0.11.0",
+    "@inflowpayai/x402-seller": "0.9.0"
   },
-  "go": "v0.2.0",
-  "python": "0.2.0",
-  "rust": "0.2.0",
+  "go": "v0.3.0",
+  "python": "0.3.0",
+  "rust": "0.3.0",
   "peerRevisions": {
-    "node": "a658ccb48caa92451899e5c77edec3244f408870",
-    "go": "bb35c8d0ad3deee43d738df8ee5d699503dc509d",
-    "python": "f4f7b06b1ad992010c25eb085177ed5a3626795c",
-    "rust": "1330d100c506dc491f6d01704ba209f97224263c"
+    "node": "07191986d57fa5024f0ba1116edd56fff95a21e8",
+    "go": "afe8f987e19f0e47a8c8a07cebdc1701ddc06a74",
+    "python": "05fb54bf334fa0dd37e98d00b839d5b348c079eb",
+    "rust": "e964f3f8557e8339d67a81a9ff0bde94324f8988"
   }
 }

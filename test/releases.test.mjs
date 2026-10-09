@@ -1,24 +1,86 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { releaseCases } from "../interop/releases.mjs";
+import { releaseCases, releaseControls } from "../interop/releases.mjs";
 import { languages } from "../interop/matrix.mjs";
 
-test("released-package checks cover both outcomes and protocols for every language", () => {
+test("released-package checks cover payment variants, failures and recovery for each language", () => {
   const cases = releaseCases();
-  assert.equal(cases.length, 16);
-  assert.equal(new Set(cases.map((c) => JSON.stringify(c))).size, 16);
+  assert.equal(cases.length, 202);
+  assert.equal(new Set(cases.map((c) => JSON.stringify(c))).size, 202);
+  assert.equal(cases.filter((c) => c.unsupported).length, 4);
   for (const language of languages)
     for (const protocol of ["mpp", "x402"]) {
       const pair = cases.filter(
         (c) => c.buyer === language && c.seller === language && c.protocol === protocol,
       );
-      assert.deepEqual(
-        pair.map((c) => c.scenario),
-        ["ready", "invalid"],
-      );
-      assert.ok(pair.every((c) => c.variant === (protocol === "mpp" ? "charge" : "balance")));
+      const variants =
+        protocol === "mpp"
+          ? ["charge", "tempo", "instrument", "card"]
+          : ["balance", "exact", "instrument"];
+      for (const variant of variants) {
+        assert.deepEqual(
+          pair.filter((c) => c.variant === variant).map((c) => c.scenario),
+          [
+            "ready",
+            "pending",
+            "invalid",
+            "settlement-failed",
+            "handler-failed",
+            ...(["instrument", "card"].includes(variant) ? ["authenticate", "uncertain"] : []),
+          ],
+        );
+      }
+      if (protocol === "mpp") {
+        for (const variant of ["subscription", "existing-subscription"]) {
+          const subscriptions = pair.filter((c) => c.variant === variant);
+          if (["python", "rust"].includes(language)) {
+            assert.equal(subscriptions.length, 1);
+            assert.match(subscriptions[0].unsupported, /upstream limitation/);
+            assert.equal(subscriptions[0].passed, undefined);
+          } else {
+            assert.deepEqual(
+              subscriptions.map((c) => c.scenario),
+              [
+                "ready",
+                ...(variant === "subscription" ? ["pending"] : []),
+                "invalid",
+                "settlement-failed",
+                "handler-failed",
+              ],
+            );
+          }
+        }
+      }
     }
+  for (const seller of languages) {
+    const stripe = cases.filter((c) => c.variant === "stripe" && c.seller === seller);
+    assert.ok(stripe.every((c) => c.buyer === "node" && c.protocol === "mpp"));
+    assert.deepEqual(
+      stripe.map((c) => c.scenario),
+      ["ready", "invalid", "settlement-failed", "handler-failed"],
+    );
+  }
+  assert.ok(cases.every((c) => c.buyer === c.seller || c.variant === "stripe"));
+});
+
+test("receipt negative controls cover each installed language and protocol", () => {
+  const controls = releaseControls();
+  assert.equal(controls.length, 8);
+  for (const language of languages)
+    for (const protocol of ["mpp", "x402"])
+      assert.deepEqual(
+        controls.filter((c) => c.buyer === language && c.protocol === protocol),
+        [
+          {
+            buyer: language,
+            seller: language,
+            protocol,
+            variant: protocol === "mpp" ? "charge" : "balance",
+            scenario: "ready",
+          },
+        ],
+      );
 });
 
 test("released SDK versions are exact stable pins, not source paths or floating tags", () => {
