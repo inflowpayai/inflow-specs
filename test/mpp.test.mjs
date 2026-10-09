@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { mppCases, mppFailureMessages } from "../fixtures/mpp.mjs";
@@ -7,6 +8,14 @@ import { selectCases, validate } from "../runner/validation.mjs";
 import { startPlatform } from "../runner/platform.mjs";
 
 const decode = (value) => JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+test("Optional-field preservation uses a valid content digest", () => {
+  const item = mppCases.cases.find((entry) => entry.id === "mpp.core.optional-fields");
+  const credential = decode(item.input.value);
+  const digest = `sha-256=:${createHash("sha256").update("").digest("base64")}:`;
+  assert.equal(credential.challenge.digest, digest);
+  assert.deepEqual(credential, item.expect.result);
+});
+
 test("Buyer failure expectations preserve transaction identifiers supplied by the platform", () => {
   for (const item of mppCases.cases.filter((entry) => entry.suite === "mpp-buyer")) {
     const failed = item.platform.exchanges.find(

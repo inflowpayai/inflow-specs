@@ -12,7 +12,7 @@ test("the original corpus is unchanged and signed setup only changes Seller acce
   const original = structuredClone(mppCases);
   assert.equal(
     createHash("sha256").update(JSON.stringify(original)).digest("hex"),
-    "fba66849d48f33785a32126ccfb04072455a29f18ba2472d7c743b60c44da9c8",
+    "70ed1e5b4482e6bcbe4cd92d5622f23f3b36f9b2771983f81dd6053267aea747",
   );
   const calls = [];
   const index = mppCasesWithSellerChallenges((challenge) => {
