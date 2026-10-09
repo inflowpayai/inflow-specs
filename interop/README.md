@@ -114,8 +114,17 @@ are tooling tests; only running this matrix exercises the four SDKs together.
 
 The manual **Released-package payment checks** workflow installs the exact versions in
 `releases.json` from npm, the Go module proxy, PyPI, and crates.io into separate consumer projects.
-For each language it runs a successful and a verification-rejected payment through MPP and x402
-balance routes: 16 cases, not another cross-language matrix.
+For each language it runs the existing MPP and x402 scenarios with that language's installed Buyer
+and Seller. These cover balance, Tempo, CARD, instrument and EVM exact payments; approval polling;
+verification and settlement rejection; application failure; and explicit payment-status recovery.
+Node and Go also exercise new and existing subscriptions. Python and Rust Seller subscriptions
+remain four explicit unsupported entries, not passing tests.
+
+Stripe uses the existing synthetic external payer against all four installed Sellers. It does not
+represent an InFlow Stripe Buyer. In total, the run contains 198 supported payment cases, four
+unsupported entries, and eight corrupted-receipt negative controls. It reuses the protocol matrix's
+assertions without repeating every cross-language pair. The same limitations on synthetic signing,
+settlement, recovery and unsupported upstream behavior described above apply.
 
 Release workflows already check package contents, imports, and selected public APIs. This check adds
 the complete local challenge, payment, verification, settlement, receipt, and protected-response

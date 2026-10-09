@@ -266,6 +266,7 @@ export async function runCase(test, commands, signal, corruptReceipt = false) {
           type: "https://paymentauth.org/problems/verification-failed",
           title: "Rejected test payment",
           status: 402,
+          detail: "Synthetic payment was rejected.",
         };
         const pendingProblem = {
           type: "https://paymentauth.org/problems/settlement-unavailable",

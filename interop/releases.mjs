@@ -4,20 +4,29 @@ import { copyFileSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } fro
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { languages } from "./matrix.mjs";
-import { runCase as mpp } from "./mpp.mjs";
-import { runCase as x402 } from "./x402.mjs";
+import { caseList as mppCases, runCase as mpp } from "./mpp.mjs";
+import { caseList as x402Cases, runCase as x402 } from "./x402.mjs";
 
 export function releaseCases() {
+  return [
+    ...mppCases()
+      .filter((c) => c.buyer === c.seller || c.variant === "stripe")
+      .map((c) => ({ ...c, protocol: "mpp" })),
+    ...x402Cases()
+      .filter((c) => c.buyer === c.seller)
+      .map((c) => ({ ...c, protocol: "x402" })),
+  ];
+}
+
+export function releaseControls() {
   return languages.flatMap((language) =>
-    ["mpp", "x402"].flatMap((protocol) =>
-      ["ready", "invalid"].map((scenario) => ({
-        buyer: language,
-        seller: language,
-        protocol,
-        variant: protocol === "mpp" ? "charge" : "balance",
-        scenario,
-      })),
-    ),
+    ["mpp", "x402"].map((protocol) => ({
+      buyer: language,
+      seller: language,
+      protocol,
+      variant: protocol === "mpp" ? "charge" : "balance",
+      scenario: "ready",
+    })),
   );
 }
 
@@ -50,6 +59,7 @@ async function main() {
     versions,
     platform: "Synthetic loopback HTTP; registry-installed SDKs; no live payments",
     cases: [],
+    negative_controls: [],
     passed: false,
   };
   const controller = new AbortController();
@@ -210,17 +220,32 @@ async function main() {
     delete report.python;
     for (const test of releaseCases()) {
       if (controller.signal.aborted) throw Error("Consumer checks interrupted");
+      const result = test.unsupported
+        ? test
+        : await (test.protocol === "mpp" ? mpp : x402)(test, commands, controller.signal);
+      report.cases.push(result);
+      process.stdout.write(
+        `${result.unsupported ? "UNSUPPORTED" : result.passed ? "PASS" : "FAIL"} ${test.buyer} -> ${test.seller} ${test.protocol} ${test.variant} ${test.scenario ?? ""}\n`,
+      );
+    }
+    for (const test of releaseControls()) {
+      if (controller.signal.aborted) throw Error("Consumer checks interrupted");
       const result = await (test.protocol === "mpp" ? mpp : x402)(
         test,
         commands,
         controller.signal,
+        true,
       );
-      report.cases.push(result);
+      report.negative_controls.push(result);
       process.stdout.write(
-        `${result.passed ? "PASS" : "FAIL"} ${test.buyer} ${test.protocol} ${test.scenario}\n`,
+        `${result.passed ? "PASS" : "FAIL"} ${test.buyer} ${test.protocol} corrupted receipt control\n`,
       );
     }
-    report.passed = report.cases.length === 16 && report.cases.every((c) => c.passed);
+    report.passed =
+      report.cases.length === releaseCases().length &&
+      report.cases.every((c) => c.unsupported || c.passed) &&
+      report.negative_controls.length === releaseControls().length &&
+      report.negative_controls.every((c) => c.passed);
   } catch (error) {
     report.error = error.stack;
   } finally {
