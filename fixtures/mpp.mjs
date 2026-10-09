@@ -654,7 +654,7 @@ function buildCases(signedChallenges = {}) {
     challenge: {
       ...challenge("balance"),
       description: "Synthetic, quoted description",
-      digest: "test-digest",
+      digest: "sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:",
       opaque: "eyJyb3V0ZSI6InRlc3QifQ",
     },
     payload: { ...credential("balance").payload, extra: { trace: "synthetic" } },
