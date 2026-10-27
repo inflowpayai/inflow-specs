@@ -902,6 +902,132 @@ add(
   [facilitator("verify", sellerInput(), rejected)],
 );
 
+for (const [name, sourceConfig, options, offers] of [
+  ["default", config, { price: "$1" }, [offer, balanceOffer]],
+  ["instrument", instrumentConfig, { price: "$1", schemes: ["instrument"] }, [instrumentOffer]],
+]) {
+  for (const paymentFlow of ["authorization", "upfront"]) {
+    add(
+      `x402.seller.offers-${name}-${paymentFlow}`,
+      "x402-seller",
+      "x402.seller.offers",
+      { config: sourceConfig, options: { ...options, paymentFlow } },
+      {
+        result: offers.map((entry) =>
+          paymentFlow === "upfront" ? { ...entry, extra: { ...entry.extra, paymentFlow } } : entry,
+        ),
+      },
+    );
+  }
+}
+
+for (const [name, original] of [
+  ["balance", balance],
+  ["exact", exact],
+  ["instrument", instrument],
+]) {
+  const requirement = { ...original, extra: { ...original.extra, paymentFlow: "upfront" } };
+  add(
+    `x402.buyer.upfront-${name}`,
+    "x402-buyer",
+    "x402.buyer.sign",
+    buyerInput(requirement),
+    signed(requirement),
+    [
+      name === "instrument" ? instrumentSupport() : buyerSupport(),
+      create(requirement),
+      poll(ready(requirement)),
+    ],
+  );
+  const input = sellerInput(payload(requirement), requirement);
+  const result = { ...settlement, network: requirement.network, amount: requirement.amount };
+  add(
+    `x402.seller.upfront-settle-${name}`,
+    "x402-seller",
+    "x402.seller.settle",
+    input,
+    { result },
+    [facilitator("settle", input, result)],
+  );
+}
+
+const upfrontRequirement = { ...balance, extra: { paymentFlow: "upfront" } };
+const upfrontInput = sellerInput(payload(upfrontRequirement), upfrontRequirement);
+const pendingSettlement = {
+  success: false,
+  network: "inflow:1",
+  transaction: "",
+  errorReason: "idempotency_pending",
+};
+for (const [name, response, status, attempts] of [
+  ["rejected", { success: false, network: "inflow:1", errorReason: "invalid_payload" }, 200, 1],
+  ["pending-exhausted", pendingSettlement, 409, 5],
+]) {
+  const exchanges = Array.from({ length: attempts }, () => {
+    const item = facilitator("settle", upfrontInput, response, status);
+    if (status === 409) item.response.headers = { "retry-after": "0" };
+    return item;
+  });
+  add(
+    `x402.seller.upfront-settle-${name}`,
+    "x402-seller",
+    "x402.seller.settle",
+    upfrontInput,
+    status === 200 ? { result: response } : failure("api-error", { body: response }, status),
+    exchanges,
+  );
+}
+
+const pendingUpfront = facilitator("settle", upfrontInput, pendingSettlement, 409);
+pendingUpfront.response.headers = { "retry-after": "0" };
+add(
+  "x402.seller.upfront-settle-pending-resolved",
+  "x402-seller",
+  "x402.seller.settle",
+  upfrontInput,
+  { result: settlement },
+  [pendingUpfront, clone(pendingUpfront), facilitator("settle", upfrontInput, settlement)],
+);
+
+for (const [name, original, inner] of [
+  ["permit2", permit2, permit2Payload.payload],
+  ["solana", solana, { transaction: "test-only-signed-transaction" }],
+]) {
+  const requirement = { ...original, extra: { ...original.extra, paymentFlow: "upfront" } };
+  const input = sellerInput({ ...payload(requirement), payload: inner }, requirement);
+  const result = { ...settlement, network: requirement.network, amount: requirement.amount };
+  add(
+    `x402.seller.upfront-settle-${name}`,
+    "x402-seller",
+    "x402.seller.settle",
+    input,
+    { result },
+    [facilitator("settle", input, result)],
+  );
+}
+
+add(
+  "x402.seller.upfront-permit2-sponsorship",
+  "x402-seller",
+  "x402.seller.route",
+  {
+    config: sponsoredConfig,
+    supported: sponsorSupport,
+    options: {
+      price: "$1",
+      schemes: ["exact"],
+      assetTransferMethod: "permit2",
+      paymentFlow: "upfront",
+    },
+  },
+  {
+    result: {
+      accepts: [{ ...sponsorOffer, extra: { ...sponsorOffer.extra, paymentFlow: "upfront" } }],
+      extensions: { inflowEip7702GasSponsoring: { info: { version: "1" } } },
+    },
+  },
+);
+
 export const x402Cases = { cases };
 
 export function x402CasesForOwnedPayments() {
