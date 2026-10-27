@@ -57,6 +57,68 @@ test("Instrument fixtures preserve exact cent boundaries and the independent wir
   assert.deepEqual(find("without-blockchain-assets").expect, find("explicit").expect);
 });
 
+test("explicit authorization preserves defaults and upfront changes only offer flow metadata", () => {
+  const find = (name) => {
+    const item = x402Cases.cases.find((entry) => entry.id === name);
+    assert.ok(item, name);
+    return item;
+  };
+  for (const [name, baseline] of [
+    ["default", "x402.seller.offers-default"],
+    ["instrument", "x402.seller.instrument-explicit"],
+  ]) {
+    const original = find(baseline);
+    const authorization = find(`x402.seller.offers-${name}-authorization`);
+    const upfront = find(`x402.seller.offers-${name}-upfront`);
+    assert.deepEqual(authorization.expect, original.expect);
+    assert.deepEqual(upfront.input.config, original.input.config);
+    assert.equal(upfront.input.options.paymentFlow, "upfront");
+    assert.deepEqual(
+      upfront.expect.result,
+      original.expect.result.map((offer) => ({
+        ...offer,
+        extra: { ...offer.extra, paymentFlow: "upfront" },
+      })),
+    );
+  }
+});
+
+test("upfront forwarding preserves requirements and identifiers without a separate verification request", () => {
+  for (const name of ["balance", "exact", "instrument", "permit2", "solana"]) {
+    const item = x402Cases.cases.find((entry) => entry.id === `x402.seller.upfront-settle-${name}`);
+    assert.ok(item, name);
+    assert.equal(item.input.payment_requirements.extra.paymentFlow, "upfront");
+    assert.deepEqual(item.input.payment_payload.accepted, item.input.payment_requirements);
+    assert.equal(item.platform.exchanges.length, 1);
+    const request = item.platform.exchanges[0].request;
+    assert.equal(request.path, "/v1/x402/settle");
+    assert.deepEqual(request.json.paymentPayload, item.input.payment_payload);
+    assert.deepEqual(request.json.paymentRequirements, item.input.payment_requirements);
+  }
+});
+
+test("upfront pending retries preserve the entire request and distinguish resolution from exhaustion", () => {
+  for (const [name, attempts, successful] of [
+    ["resolved", 3, true],
+    ["exhausted", 5, false],
+  ]) {
+    const item = x402Cases.cases.find(
+      (entry) => entry.id === `x402.seller.upfront-settle-pending-${name}`,
+    );
+    assert.ok(item);
+    assert.equal(item.platform.exchanges.length, attempts);
+    const request = item.platform.exchanges[0].request;
+    assert.equal(request.json.paymentRequirements.extra.paymentFlow, "upfront");
+    for (const exchange of item.platform.exchanges) assert.deepEqual(exchange.request, request);
+    if (successful) assert.equal(item.expect.result.success, true);
+    else {
+      assert.equal(item.expect.error.http_status, 409);
+      assert.equal(item.expect.error.details.body.errorReason, "idempotency_pending");
+      assert.ok(item.platform.exchanges.every((exchange) => exchange.response.status === 409));
+    }
+  }
+});
+
 test("x402 schemas reject contradictory suite, operation and input combinations", () => {
   const original = x402Cases.cases.find((item) => item.id === "x402.buyer.ready-balance");
   for (const mutate of [

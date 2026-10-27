@@ -65,10 +65,11 @@ payload and identifier, separate Buyer and Seller API keys, polling, and receipt
 protected request must preserve its application session header without leaking a platform API key.
 Successful paid responses must have private caching.
 
-x402 executes the handler after verification but before settlement. A verification rejection must
-not run the handler or settle. A handler error must not settle. A settlement rejection must return
-402 without the paid response body or a successful receipt, even though the handler has already run.
-Each payment must be created once, verified once, and settled at most once in these scenarios.
+This matrix exercises the default **authorization** flow: x402 executes the handler after
+verification but before settlement. A verification rejection must not run the handler or settle. A
+handler error must not settle. A settlement rejection must return 402 without the paid response body
+or a successful receipt, even though the handler has already run. Each payment must be created once,
+verified once, and settled at most once in these scenarios.
 
 Recovery cases explicitly read the original transaction twice before the runner resends its original
 payment payload. They assert one purchase and a successful recovery receipt. The Seller verifies and
@@ -80,6 +81,13 @@ The platform returns synthetic signed payloads. This matrix does not verify cryp
 on-chain transactions, replay protection, external-wallet Buyers, every blockchain, Permit2, metered
 payments, sponsorship, TAP, or live sandbox payments. It tests the SDK and middleware exchange, not
 the platform's ability to accept a real payment.
+
+It does not certify upfront execution. The
+[upfront contract](../contracts/x402.md#authorization-and-upfront-payments) requires settlement
+before handler execution and separate real-middleware evidence from each SDK. Passing this
+authorization matrix is not evidence that an SDK supports upfront. The pinned peer programs and
+released packages must support explicit flow selection before a cross-language upfront run can
+exercise that contract; do not simulate it by reordering calls in the matrix runner.
 
 ## Run and read the report
 
