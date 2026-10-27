@@ -960,7 +960,12 @@ const pendingSettlement = {
   errorReason: "idempotency_pending",
 };
 for (const [name, response, status, attempts] of [
-  ["rejected", { success: false, network: "inflow:1", errorReason: "invalid_payload" }, 200, 1],
+  [
+    "rejected",
+    { success: false, transaction: "", network: "inflow:1", errorReason: "invalid_payload" },
+    200,
+    1,
+  ],
   ["pending-exhausted", pendingSettlement, 409, 5],
 ]) {
   const exchanges = Array.from({ length: attempts }, () => {
