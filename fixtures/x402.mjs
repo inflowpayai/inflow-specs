@@ -443,6 +443,34 @@ const settlement = {
   payer,
   amount: "100000000",
 };
+for (const requirements of [balance, instrument, exact]) {
+  const input = sellerInput(payload(requirements), requirements);
+  const response = {
+    ...settlement,
+    amount: requirements.amount,
+    network: requirements.network,
+    transaction: requirements.scheme === "exact" ? `0x${"ab".repeat(32)}` : transactionId,
+    extensions: {
+      "test-existing": { info: { preserved: true } },
+      "inflow-transaction": {
+        info: { transactionId },
+        schema: {
+          type: "object",
+          properties: { transactionId: { type: "string", format: "uuid" } },
+          required: ["transactionId"],
+        },
+      },
+    },
+  };
+  add(
+    `x402.seller.settle-correlation-${requirements.scheme}`,
+    "x402-seller",
+    "x402.seller.settle",
+    input,
+    { result: response },
+    [facilitator("settle", input, response)],
+  );
+}
 for (const [name, operation, response, status] of [
   ["verify", "verify", valid, 200],
   ["verify-rejected", "verify", { isValid: false, invalidReason: "invalid_payload" }, 200],

@@ -1,5 +1,9 @@
 # MPP SDK cases
 
+The [transaction correlation contract](transaction-correlation.md) defines the optional InFlow
+Transaction ID in settlement receipts. Receipt-correlation cases exercise both the core decoder and
+seller integration; ordinary receipt cases retain coverage of responses without that field.
+
 The [MPP corpus](../fixtures/mpp.mjs) checks InFlow's Core, Buyer, and Seller integration with
 [MPP](https://mpp.dev/). It is development tooling, not a payment service or a runtime dependency.
 

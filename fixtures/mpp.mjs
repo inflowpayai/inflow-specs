@@ -321,6 +321,30 @@ function buildCases(signedChallenges = {}) {
       { result: receipt(kind) },
       [getConfig(), validateExchange(kind), broadcastExchange(kind)],
     );
+    const correlated = {
+      ...receipt(kind),
+      inflowTransactionId: transactionId,
+      reference: kind === "tempo" ? `0x${"ab".repeat(32)}` : transactionId,
+    };
+    add(
+      `mpp.core.receipt-correlation-${kind}`,
+      "mpp-core",
+      "mpp.core.decode-receipt",
+      { value: encode(correlated) },
+      { result: correlated },
+    );
+    add(
+      `mpp.seller.receipt-correlation-${kind}`,
+      "mpp-seller",
+      "mpp.seller.verify",
+      sellerInput(kind),
+      { result: correlated },
+      [
+        getConfig(),
+        validateExchange(kind),
+        broadcastExchange(kind, { receipt: correlated, receiptHeader: encode(correlated) }),
+      ],
+    );
   }
   add(
     "mpp.buyer.instrument-primary",

@@ -8,6 +8,28 @@ import { selectCases, validate } from "../runner/validation.mjs";
 import { startPlatform } from "../runner/platform.mjs";
 
 const decode = (value) => JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+test("Transaction correlation fixtures preserve receipts and cover absent identifiers", () => {
+  for (const kind of ["balance", "instrument", "subscription", "tempo"]) {
+    const correlated = mppCases.cases.find(
+      (item) => item.id === `mpp.seller.receipt-correlation-${kind}`,
+    );
+    const ordinary = mppCases.cases.find((item) => item.id === `mpp.seller.verify-${kind}`);
+    assert.ok(correlated);
+    assert.ok(ordinary);
+    assert.equal(ordinary.expect.result.inflowTransactionId, undefined);
+    const response = correlated.platform.exchanges.at(-1).response.json;
+    assert.deepEqual(decode(response.receiptHeader), correlated.expect.result);
+    assert.deepEqual(response.receipt, correlated.expect.result);
+    assert.equal(
+      correlated.expect.result.inflowTransactionId,
+      "22222222-2222-4222-8222-222222222222",
+    );
+    if (kind === "tempo") {
+      assert.notEqual(response.receipt.reference, response.receipt.inflowTransactionId);
+    }
+  }
+});
+
 test("Optional-field preservation uses a valid content digest", () => {
   const item = mppCases.cases.find((entry) => entry.id === "mpp.core.optional-fields");
   const credential = decode(item.input.value);
@@ -91,6 +113,7 @@ test("Seller subscription capability preserves charge and Buyer requirements", (
     "mpp.seller.validation-rejected-subscription",
     "mpp.seller.broadcast-rejected-subscription",
     "mpp.seller.prepare-subscription",
+    "mpp.seller.receipt-correlation-subscription",
     "mpp.seller.unsupported-intent-currency",
     "mpp.seller.route-binding-subscription-1",
     "mpp.seller.route-binding-subscription-2",
