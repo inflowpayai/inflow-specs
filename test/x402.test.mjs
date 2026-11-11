@@ -6,6 +6,24 @@ import { x402Cases, x402FailureMessages } from "../fixtures/x402.mjs";
 import { selectCases, validate } from "../runner/validation.mjs";
 import { startPlatform } from "../runner/platform.mjs";
 
+test("Settlement correlation retains network references and unrelated extensions", () => {
+  for (const scheme of ["balance", "instrument", "exact"]) {
+    const item = x402Cases.cases.find(
+      (entry) => entry.id === `x402.seller.settle-correlation-${scheme}`,
+    );
+    assert.ok(item);
+    const result = item.expect.result;
+    assert.deepEqual(result, item.platform.exchanges[0].response.json);
+    assert.deepEqual(result.extensions["test-existing"], { info: { preserved: true } });
+    const extension = result.extensions["inflow-transaction"];
+    assert.equal(extension.info.transactionId, "22222222-2222-4222-8222-222222222222");
+    assert.deepEqual(extension.schema.required, ["transactionId"]);
+    if (scheme === "exact") assert.notEqual(result.transaction, extension.info.transactionId);
+  }
+  const ordinary = x402Cases.cases.find((item) => item.id === "x402.seller.settle");
+  assert.equal(ordinary.expect.result.extensions, undefined);
+});
+
 test("x402 corpus exports deterministic schema-checked operations", () => {
   const output = execFileSync(
     process.execPath,

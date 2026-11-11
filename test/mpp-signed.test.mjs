@@ -12,7 +12,7 @@ test("the original corpus is unchanged and signed setup only changes Seller acce
   const original = structuredClone(mppCases);
   assert.equal(
     createHash("sha256").update(JSON.stringify(original)).digest("hex"),
-    "70ed1e5b4482e6bcbe4cd92d5622f23f3b36f9b2771983f81dd6053267aea747",
+    "83eb193ad4aa2faf66f5f246c3389a3f119363e1a16a337e3e1da4cf5521662a",
   );
   const calls = [];
   const index = mppCasesWithSellerChallenges((challenge) => {
@@ -66,7 +66,7 @@ test("the original corpus is unchanged and signed setup only changes Seller acce
       assert.deepEqual(item.expect.result.settlement, before.expect.result.settlement);
     } else assert.deepEqual(item.expect, before.expect);
   }
-  assert.equal(changed, 19);
+  assert.equal(changed, 22);
   index.cases[0].input.value.amount = "caller mutation";
   assert.deepEqual(mppCases, original);
   assert.deepEqual(mppCasesWithSellerChallenges(sign), mppCasesWithSellerChallenges(sign));
