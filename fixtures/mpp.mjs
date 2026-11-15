@@ -245,6 +245,34 @@ function buildCases(signedChallenges = {}) {
   const second = challenge("instrument");
   const header = (value) =>
     `Payment id="${value.id}", realm="${value.realm}", method="${value.method}", intent="${value.intent}", request="${value.request}"`;
+  for (const name of ["Authorization", "Payment-Authorization"]) {
+    const selected = { ...first, header: name };
+    const issued = { ...credential("balance"), challenge: selected };
+    add(
+      `mpp.core.challenge-header-${name.toLowerCase()}`,
+      "mpp-core",
+      "mpp.core.parse-challenges",
+      { headers: `${header(first)}, header="${name}"` },
+      { result: [selected] },
+    );
+    add(
+      `mpp.core.credential-header-${name.toLowerCase()}`,
+      "mpp-core",
+      "mpp.core.decode-credential",
+      { value: encode(issued) },
+      { result: issued },
+    );
+    const creation = create("balance", { ...ready("balance"), credential: encode(issued) });
+    creation.request.json.challenge = selected;
+    add(
+      `mpp.buyer.header-${name.toLowerCase()}`,
+      "mpp-buyer",
+      "mpp.buyer.fulfil",
+      buyerInput("balance", { challenge: selected }),
+      { result: issued },
+      [creation],
+    );
+  }
   add(
     "mpp.core.combined-challenges",
     "mpp-core",

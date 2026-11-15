@@ -6,6 +6,56 @@ import { x402Cases, x402FailureMessages } from "../fixtures/x402.mjs";
 import { selectCases, validate } from "../runner/validation.mjs";
 import { startPlatform } from "../runner/platform.mjs";
 
+test("Solana fixtures preserve version metadata without leaking it into other networks", () => {
+  for (const name of ["absent", "v0", "v1", "v0-v1"]) {
+    const seller = x402Cases.cases.find(
+      (entry) => entry.id === `x402.seller.solana-versions-${name}`,
+    );
+    const buyer = x402Cases.cases.find(
+      (entry) => entry.id === `x402.buyer.solana-versions-${name}`,
+    );
+    const solana = seller.expect.result.find((entry) => entry.network.startsWith("solana:"));
+    const versions = buyer.input.requirement.extra.transactionVersions;
+    assert.deepEqual(solana.extra.transactionVersions, versions);
+    assert.ok(
+      seller.expect.result
+        .filter((entry) => entry !== solana)
+        .every((entry) => !Object.hasOwn(entry.extra, "transactionVersions")),
+    );
+    assert.deepEqual(buyer.platform.exchanges[1].request.json.accept, buyer.input.requirement);
+    assert.deepEqual(buyer.expect.result.paymentPayload.accepted, buyer.input.requirement);
+    assert.deepEqual(
+      JSON.parse(Buffer.from(buyer.expect.result.encodedPayload, "base64")),
+      buyer.expect.result.paymentPayload,
+    );
+    if (name === "absent") assert.equal(Object.hasOwn(solana.extra, "transactionVersions"), false);
+  }
+});
+
+test("optional extension metadata never changes the settlement outcome or adds retry exchanges", () => {
+  for (const operation of ["verify", "settle"]) {
+    for (const name of ["valid", "malformed", "array", "null", "rejected"]) {
+      const item = x402Cases.cases.find(
+        (entry) => entry.id === `x402.seller.${operation}-extension-responses-${name}`,
+      );
+      assert.equal(item.platform.exchanges.length, 1);
+      const { extensionResponses, ...outcome } = item.expect.result;
+      assert.deepEqual(outcome, item.platform.exchanges[0].response.json);
+      if (name === "valid" || name === "rejected") {
+        assert.deepEqual(
+          extensionResponses,
+          JSON.parse(
+            Buffer.from(
+              item.platform.exchanges[0].response.headers["extension-responses"],
+              "base64",
+            ),
+          ),
+        );
+      } else assert.equal(extensionResponses, undefined);
+    }
+  }
+});
+
 test("Settlement correlation retains network references and unrelated extensions", () => {
   for (const scheme of ["balance", "instrument", "exact"]) {
     const item = x402Cases.cases.find(

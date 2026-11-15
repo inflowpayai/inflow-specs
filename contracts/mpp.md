@@ -126,6 +126,34 @@ itself. The 60-second retry advice in this case keeps polling out of the cancell
 
 ### Core codecs and method schemas
 
+#### Credential header selection
+
+Preserve an optional challenge `header` through parsing, credential encoding, Buyer transaction
+creation, and Seller validation and broadcast. An absent header uses `Authorization`; an explicit
+`Payment-Authorization` selects that request header instead. Do not drop the field while translating
+between a foundation library's decoded challenge and the InFlow wire representation.
+
+The shared cases cover parsing, decoding, and Buyer forwarding for explicit default and alternate
+headers. Existing cases without `header` remain mandatory. They do not prove HTTP transport or
+challenge-signature enforcement. Language-native tests must use the real upstream transport and
+Seller integration to verify that:
+
+- The paid request uses the selected header and retains independent application authentication in
+  `Authorization` when a different payment header is selected.
+- Seller validation and broadcast receive the original challenge header unchanged.
+- Removing or changing a bound alternate header is rejected before settlement and handler execution.
+- Default-header challenges remain usable; a malformed header name cannot inject another header.
+- Redirect handling does not leak payment or application credentials to another origin.
+
+The issuer owns challenge signing. Do not re-sign a received challenge or weaken signature checks in
+an adapter to make these tests pass. The
+[Node challenge codec](https://github.com/inflowpayai/inflow-node/blob/cdcbae8/packages/mpp/src/codec.ts)
+and
+[Seller mapping](https://github.com/inflowpayai/inflow-node/blob/cdcbae8/packages/mpp-seller/src/methods.server.ts)
+provide implementation references.
+
+#### Codec and method validation
+
 Challenge header codecs must escape and unescape quoted values consistently, including the realm,
 and reject control characters that could corrupt a header. Test literal wire values as well as round
 trips; a serializer and parser can otherwise share the same mistake.
@@ -168,6 +196,22 @@ Language-native tests must exercise these defaults through the public Core clien
 Buyer orchestration that supplies its own retry settings. Verify explicit overrides without mutating
 caller-owned options. These transport checks supplement the shared corpus; its Buyer cases do not
 establish the direct Core client's retry behavior.
+
+### Optional Buyer controls
+
+Buyer restrictions are opt-in, not additional default spending limits. Test configured currencies,
+networks, recipients, and amount caps before approval creation or signing. Amount comparisons must
+preserve the currency's units and precision. A rejected choice must not cause a replacement purchase
+outside those restrictions. These checks supplement platform authorization; disabling a local SDK
+control does not disable platform policy or approval requirements.
+
+Use each language's public options and native transport tests rather than requiring a shared class
+or method name. Cover omitted controls, explicit restrictions, independent concurrent calls,
+per-request cancellation, and an explicit no-payment request. No-payment must return the unpaid
+response without creating an approval or credential. Do not interpret a transport failure after a
+paid request as permission to create another payment. The
+[Node Buyer controls](https://github.com/inflowpayai/inflow-node/blob/cdcbae8/packages/mpp-buyer/src/controls.ts)
+are the implementation reference; these behaviors are not certified by the shared fulfilment cases.
 
 ### Language-native cancellation tests
 

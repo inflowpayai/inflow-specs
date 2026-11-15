@@ -642,6 +642,116 @@ const balanceOffer = {
   maxTimeoutSeconds: 300,
   extra: { assetName: "USDC" },
 };
+for (const [name, versions] of [
+  ["absent", undefined],
+  ["v0", [0]],
+  ["v1", [1]],
+  ["v0-v1", [0, 1]],
+]) {
+  const extra = versions === undefined ? {} : { transactionVersions: versions };
+  const kind = { scheme: "exact", network: solana.network, x402Version: 2, extra };
+  const requirement = { ...solana, extra: { ...solana.extra, feePayer: solana.payTo, ...extra } };
+  const payment = {
+    ...payload(requirement),
+    payload: { transaction: "test-only-signed-transaction" },
+  };
+  const readyResponse = {
+    ...ready(requirement),
+    encodedPayload: encode(payment),
+    paymentPayload: payment,
+  };
+  const supportResponse = clone(buyerSupport());
+  supportResponse.response.json.kinds.push(kind);
+  add(
+    `x402.buyer.solana-versions-${name}`,
+    "x402-buyer",
+    "x402.buyer.sign",
+    buyerInput(requirement),
+    { result: { encodedPayload: encode(payment), paymentPayload: payment, transactionId } },
+    [supportResponse, create(requirement), poll(readyResponse)],
+  );
+  const sourceConfig = clone(config);
+  sourceConfig.assets.push({
+    assetId: solana.asset,
+    assetName: "USDC",
+    currency: "USDC",
+    blockchain: "SOLANA",
+    network: solana.network,
+    decimals: 6,
+    assetTransferMethod: "solana",
+  });
+  sourceConfig.wallets.push({
+    address: solana.payTo,
+    blockchain: "SOLANA",
+    network: solana.network,
+    feePayer: solana.payTo,
+  });
+  sourceConfig.supported.push(
+    {
+      scheme: "upto",
+      network: solana.network,
+      x402Version: 2,
+      extra: { transactionVersions: [1] },
+    },
+    kind,
+  );
+  add(
+    `x402.seller.solana-versions-${name}`,
+    "x402-seller",
+    "x402.seller.offers",
+    { config: sourceConfig, options: { price: "1 USDC" } },
+    {
+      result: [
+        offer,
+        {
+          scheme: "exact",
+          network: solana.network,
+          payTo: solana.payTo,
+          price: { asset: solana.asset, amount: "1000000" },
+          maxTimeoutSeconds: 300,
+          extra: {
+            assetName: "USDC",
+            assetTransferMethod: "solana",
+            feePayer: solana.payTo,
+            ...extra,
+          },
+        },
+        balanceOffer,
+      ],
+    },
+  );
+}
+
+for (const operation of ["verify", "settle"]) {
+  const result = operation === "verify" ? { isValid: true, payer } : settlement;
+  const metadata = { "test-extension": { status: "accepted", details: { preserved: true } } };
+  for (const [name, value, attached] of [
+    ["valid", encode(metadata), metadata],
+    ["malformed", "not-base64-json", undefined],
+    ["array", encode([]), undefined],
+    ["null", encode(null), undefined],
+    ["rejected", encode(metadata), metadata],
+  ]) {
+    const outcome =
+      name === "rejected"
+        ? operation === "verify"
+          ? { isValid: false, invalidReason: "invalid_payload" }
+          : { success: false, transaction: "", network: "inflow:1", errorReason: "invalid_payload" }
+        : result;
+    const response = facilitator(operation, sellerInput(), outcome);
+    response.response.headers = { "extension-responses": value };
+    add(
+      `x402.seller.${operation}-extension-responses-${name}`,
+      "x402-seller",
+      `x402.seller.${operation}`,
+      sellerInput(),
+      {
+        result: { ...outcome, ...(attached === undefined ? {} : { extensionResponses: attached }) },
+      },
+      [response],
+    );
+  }
+}
 for (const [name, options, result] of [
   ["default", { price: "$1" }, [offer, balanceOffer]],
   ["currency", { price: "1 USDC" }, [offer, balanceOffer]],
