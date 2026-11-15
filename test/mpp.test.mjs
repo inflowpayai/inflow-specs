@@ -8,6 +8,22 @@ import { selectCases, validate } from "../runner/validation.mjs";
 import { startPlatform } from "../runner/platform.mjs";
 
 const decode = (value) => JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+test("header fixtures preserve the selected header in creation and returned credentials", () => {
+  for (const name of ["Authorization", "Payment-Authorization"]) {
+    const item = mppCases.cases.find(
+      (entry) => entry.id === `mpp.buyer.header-${name.toLowerCase()}`,
+    );
+    const exchange = item.platform.exchanges[0];
+    assert.equal(item.input.challenge.header, name);
+    assert.deepEqual(exchange.request.json.challenge, item.input.challenge);
+    assert.deepEqual(decode(exchange.response.json.credential), item.expect.result);
+    assert.deepEqual(item.expect.result.challenge, item.input.challenge);
+    assert.equal(item.platform.exchanges.length, 1);
+  }
+  const ordinary = mppCases.cases.find((entry) => entry.id === "mpp.buyer.ready-balance");
+  assert.equal(Object.hasOwn(ordinary.input.challenge, "header"), false);
+});
+
 test("Transaction correlation fixtures preserve receipts and cover absent identifiers", () => {
   for (const kind of ["balance", "instrument", "subscription", "tempo"]) {
     const correlated = mppCases.cases.find(
