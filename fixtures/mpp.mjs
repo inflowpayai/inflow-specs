@@ -245,18 +245,20 @@ function buildCases(signedChallenges = {}) {
   const second = challenge("instrument");
   const header = (value) =>
     `Payment id="${value.id}", realm="${value.realm}", method="${value.method}", intent="${value.intent}", request="${value.request}"`;
-  for (const name of ["Authorization", "Payment-Authorization"]) {
-    const selected = { ...first, header: name };
+  // draft-httpauth-payment-01 sections 5.1.2 and 5.2: omission selects Authorization.
+  for (const name of [undefined, "Payment-Authorization"]) {
+    const suffix = name === undefined ? "default" : name.toLowerCase();
+    const selected = name === undefined ? first : { ...first, header: name };
     const issued = { ...credential("balance"), challenge: selected };
     add(
-      `mpp.core.challenge-header-${name.toLowerCase()}`,
+      `mpp.core.challenge-header-${suffix}`,
       "mpp-core",
       "mpp.core.parse-challenges",
-      { headers: `${header(first)}, header="${name}"` },
+      { headers: `${header(first)}${name === undefined ? "" : `, header="${name}"`}` },
       { result: [selected] },
     );
     add(
-      `mpp.core.credential-header-${name.toLowerCase()}`,
+      `mpp.core.credential-header-${suffix}`,
       "mpp-core",
       "mpp.core.decode-credential",
       { value: encode(issued) },
@@ -265,12 +267,26 @@ function buildCases(signedChallenges = {}) {
     const creation = create("balance", { ...ready("balance"), credential: encode(issued) });
     creation.request.json.challenge = selected;
     add(
-      `mpp.buyer.header-${name.toLowerCase()}`,
+      `mpp.buyer.header-${suffix}`,
       "mpp-buyer",
       "mpp.buyer.fulfil",
       buyerInput("balance", { challenge: selected }),
       { result: issued },
       [creation],
+    );
+  }
+  for (const [suffix, name] of [
+    ["explicit-authorization", "Authorization"],
+    ["custom", "X-Payment"],
+    ["empty", ""],
+  ]) {
+    add(
+      `mpp.buyer.reject-header-${suffix}`,
+      "mpp-buyer",
+      "mpp.buyer.fulfil",
+      buyerInput("balance", { challenge: { ...first, header: name } }),
+      failure("invalid-input"),
+      [],
     );
   }
   add(
